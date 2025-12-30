@@ -37,7 +37,9 @@
                 data.forEach(item => {
                     const name = item.name || '';
                     // Keep HTML in description, just trim whitespace
-                    const description = (item.description || '').trim();
+                    let description = (item.description || '').trim();
+                    // Filter out WordPress shortcodes (tooltip, etc.) - see cleanWordPressShortcodes function
+                    description = cleanWordPressShortcodes(description);
                     // Properly escape for CSV: wrap in quotes and escape internal quotes
                     const escapedDesc = `"${description.replace(/"/g, '""')}"`;
                     rows.push(`${name},${escapedDesc}`);
@@ -67,6 +69,20 @@
 
         // Fetch data on page load
         fetchShakespeareData();
+
+        // Helper function to clean WordPress shortcodes from descriptions
+        // Removes [tooltip title="..."]content[/tooltip] patterns while keeping the content
+        // This filtering is applied to descriptions from both API and CSV uploads
+        function cleanWordPressShortcodes(text) {
+            if (!text) return text;
+            
+            // Remove tooltip shortcodes: [tooltip title="..."]content[/tooltip] -> content
+            text = text.replace(/\[tooltip[^\]]*\]([^\[]*?)\[\/tooltip\]/gi, '$1');
+            
+            // Add additional WordPress shortcode patterns here if needed in the future
+            
+            return text;
+        }
 
         class FlashcardApp {
             constructor() {
@@ -183,7 +199,10 @@
                     values.push(currentValue.trim());
                     
                     const name = (values[nameIndex] || values[0] || '').replace(/^["']|["']$/g, '');
-                    const description = (values[descIndex] || values[1] || '').replace(/^["']|["']$/g, '');
+                    let description = (values[descIndex] || values[1] || '').replace(/^["']|["']$/g, '');
+                    
+                    // Filter out WordPress shortcodes from uploaded CSV as well
+                    description = cleanWordPressShortcodes(description);
                     
                     if (name && description) {
                         parsedCards.push({
