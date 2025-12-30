@@ -30,17 +30,20 @@
                 const response = await fetch('https://myshakespeare.me/wp-json/wp/v2/figures_of_speech?per_page=100');
                 const data = await response.json();
                 
+                console.log(`Fetched ${data.length} items from API`);
+                
                 // Convert API response to CSV format
                 const rows = ['Name,Description'];
                 data.forEach(item => {
                     const name = item.name || '';
-                    // Strip HTML tags from description
-                    const description = (item.description || '').replace(/<[^>]*>/g, '').trim();
-                    // Escape commas in description
-                    const escapedDesc = description.includes(',') ? `"${description}"` : description;
+                    // Keep HTML in description, just trim whitespace
+                    const description = (item.description || '').trim();
+                    // Properly escape for CSV: wrap in quotes and escape internal quotes
+                    const escapedDesc = `"${description.replace(/"/g, '""')}"`;
                     rows.push(`${name},${escapedDesc}`);
                 });
                 
+                console.log(`Created CSV with ${rows.length - 1} cards`);
                 DEFAULT_DATA = rows.join('\n');
                 isLoadingData = false;
                 
@@ -90,13 +93,38 @@
 
             loadProgress() {
                 const saved = localStorage.getItem('flashcard-progress');
-                if (saved) {
-                    this.cards = JSON.parse(saved);
-                } else {
-                    this.cards = this.parseCSV(DEFAULT_DATA);
-                    this.saveProgress();
+                let savedProgress = saved ? JSON.parse(saved) : null;
+                
+                // Always use fresh data from API
+                this.cards = this.parseCSV(DEFAULT_DATA);
+                console.log(`After parseCSV: ${this.cards.length} cards`);
+                
+                // Restore progress for cards that existed before (match by name)
+                if (savedProgress && savedProgress.length > 0) {
+                    const progressMap = new Map();
+                    savedProgress.forEach(card => {
+                        progressMap.set(card.name, {
+                            status: card.status,
+                            reviewCount: card.reviewCount,
+                            lastReviewed: card.lastReviewed,
+                            weight: card.weight
+                        });
+                    });
+                    
+                    this.cards = this.cards.map(card => {
+                        const progress = progressMap.get(card.name);
+                        if (progress) {
+                            return { ...card, ...progress };
+                        }
+                        return card;
+                    });
+                    
+                    console.log(`Restored progress for ${progressMap.size} existing cards`);
                 }
+                
+                this.saveProgress();
                 this.updateFilteredCards();
+                console.log(`After updateFilteredCards: ${this.filteredCards.length} filtered cards`);
             }
 
             saveProgress() {
@@ -112,19 +140,39 @@
                 
                 const parsedCards = [];
                 
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i];
-                    if (!line.trim()) continue;
+                // Better CSV parsing that handles multi-line quoted fields
+                let i = 1;
+                while (i < lines.length) {
+                    if (!lines[i].trim()) {
+                        i++;
+                        continue;
+                    }
+                    
+                    let fullLine = lines[i];
+                    
+                    // Check if we're inside a quoted field that spans multiple lines
+                    let quoteCount = (fullLine.match(/"/g) || []).length;
+                    while (quoteCount % 2 !== 0 && i + 1 < lines.length) {
+                        i++;
+                        fullLine += '\n' + lines[i];
+                        quoteCount = (fullLine.match(/"/g) || []).length;
+                    }
                     
                     const values = [];
                     let currentValue = '';
                     let insideQuotes = false;
                     
-                    for (let j = 0; j < line.length; j++) {
-                        const char = line[j];
+                    for (let j = 0; j < fullLine.length; j++) {
+                        const char = fullLine[j];
                         
                         if (char === '"') {
-                            insideQuotes = !insideQuotes;
+                            // Handle escaped quotes ("")
+                            if (insideQuotes && fullLine[j + 1] === '"') {
+                                currentValue += '"';
+                                j++; // Skip next quote
+                            } else {
+                                insideQuotes = !insideQuotes;
+                            }
                         } else if (char === ',' && !insideQuotes) {
                             values.push(currentValue.trim());
                             currentValue = '';
@@ -139,7 +187,7 @@
                     
                     if (name && description) {
                         parsedCards.push({
-                            id: i - 1,
+                            id: parsedCards.length,
                             name: name,
                             description: description,
                             status: 'new',
@@ -148,12 +196,16 @@
                             weight: 1
                         });
                     }
+                    
+                    i++;
                 }
 
+                console.log(`Parsed ${parsedCards.length} cards from CSV`);
                 return this.shuffleCards(parsedCards);
             }
 
             shuffleCards(cardList) {
+                console.log(`shuffleCards input: ${cardList.length} cards`);
                 const weighted = [];
                 cardList.forEach(card => {
                     const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
@@ -162,12 +214,16 @@
                     }
                 });
                 
+                console.log(`After weighting: ${weighted.length} cards`);
+                
                 for (let i = weighted.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [weighted[i], weighted[j]] = [weighted[j], weighted[i]];
                 }
                 
-                return weighted.map(card => ({ ...card }));
+                const result = weighted.map(card => ({ ...card }));
+                console.log(`shuffleCards output: ${result.length} cards`);
+                return result;
             }
 
             updateFilteredCards() {
@@ -177,6 +233,7 @@
                     const term = this.searchTerm.toLowerCase();
                     this.filteredCards = this.cards.filter(card => {
                         const nameText = card.name.toLowerCase();
+                        // Strip HTML tags only for searching, not for display
                         const descText = card.description.replace(/<[^>]*>/g, '').toLowerCase();
                         return nameText.includes(term) || descText.includes(term);
                     });
@@ -397,10 +454,7 @@ Python,A high-level programming language"
 
                                     <div id="flashcard" class="card-flip min-h-64 flex items-center justify-center cursor-pointer bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg p-8 mb-6 hover:from-amber-200 hover:to-orange-200 transition">
                                         <div class="text-center w-full">
-                                            ${!this.isFlipped ? 
-                                                `<div class="text-2xl font-bold text-amber-900">${this.filteredCards[this.currentIndex].name}</div>` :
-                                                `<div class="text-xl text-amber-900" style="line-height: 1.6;">${this.filteredCards[this.currentIndex].description}</div>`
-                                            }
+                                            <div id="flashcardContent" class="${!this.isFlipped ? 'text-2xl font-bold text-amber-900' : 'text-xl text-amber-900'}" style="line-height: 1.6;"></div>
                                         </div>
                                     </div>
 
@@ -562,9 +616,19 @@ Python,A high-level programming language"
                 
                 if (searchInput) {
                     searchInput.oninput = (e) => {
+                        const cursorPosition = e.target.selectionStart;
                         this.searchTerm = e.target.value;
                         this.updateFilteredCards();
                         this.render();
+                        
+                        // Restore focus and cursor position after render
+                        setTimeout(() => {
+                            const newSearchInput = document.getElementById('searchInput');
+                            if (newSearchInput) {
+                                newSearchInput.focus();
+                                newSearchInput.setSelectionRange(cursorPosition, cursorPosition);
+                            }
+                        }, 0);
                     };
                 }
                 
@@ -573,6 +637,16 @@ Python,A high-level programming language"
                         this.isFlipped = !this.isFlipped;
                         this.render();
                     };
+                }
+                
+                // Populate flashcard content with innerHTML to render HTML
+                const flashcardContent = document.getElementById('flashcardContent');
+                if (flashcardContent && this.filteredCards.length > 0) {
+                    if (!this.isFlipped) {
+                        flashcardContent.textContent = this.filteredCards[this.currentIndex].name;
+                    } else {
+                        flashcardContent.innerHTML = this.filteredCards[this.currentIndex].description;
+                    }
                 }
                 
                 if (needsReview) {
