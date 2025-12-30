@@ -21,17 +21,49 @@
     <div id="app"></div>
 
     <script>
-        const DEFAULT_DATA = `Name,Description
-Acrophobia,Acrophobia (n-fear of heights)
-Adnominatio,Adnominatio (ad-no'-mi-na'-ti-o) is an unintended use of the wrong word often by someone attempting to sound educated or erudite. "O villain! Thou wilt be condemned into everlasting redemption for this!" Much Ado About Nothing 4.2.38. Dogberry uses "redemption" instead of "damnation." The modern term for this figure is malapropism.
-Adynaton,Adynaton (a-dyn'-a-ton) is an extreme form of hyperbole. An adynaton is a statement that something is impossible--as in "it will take a miracle." Ha ha her sweet escalation. / lath? Things that are mouldy lack use- very angular good in faith and said So lath
-Allusion,Allusion (a-lu'-sion) is a brief and indirect reference to a person an idea a place or thing. "I do not set my life at a pin's fee / And for my soul what can it do to that / Being a thing immortal as itself?" Hamlet 1.4.65.
-Alliteration,Alliteration (al-lit'-er-a'-shon) is the repetition of an initial stressed consonant sound for two or more words. "When in the sessions of sweet silent thought..." "Sonnet 30. Alliteration is different from consonance which is the repetition of a consonant sound on stressed or unstressed syllables that are not always at the beginning
-Metaphor,Metaphor (met'-a-for) is a figure of comparison in which one thing is said to be or is compared to something essentially unlike itself. "All the world's a stage." As You Like It 2.7.139. Extended metaphors are sometimes called conceits.
-Simile,Simile (sim'-i-lee) is a direct comparison using "like" or "as." "But soft what light through yonder window breaks? / It is the east and Juliet is the sun." Romeo and Juliet 2.2.3.
-Hyperbole,Hyperbole (hy-per'-bo-lee) is exaggeration for the purpose of emphasis or heightened effect. "Has this Jocastea sworn / That she will still love herself? And in this mood will give us nothing." Troilus and Cressida 2.2.184
-Irony,Irony (i'-ron-ē) is the expression of one's meaning by using language that normally signifies the opposite typically for humorous or emphatic effect. "Yet Brutus says he was ambitious / And Brutus is an honorable man." Julius Caesar 3.2.99.
-Oxymoron,Oxymoron (ok-si-mor'-on) is the combining of contradictory or opposite ideas terms or objects. "O heavy lightness! Serious vanity!" Romeo and Juliet 1.1.182.`;
+        let DEFAULT_DATA = null;
+        let isLoadingData = true;
+
+        // Fetch Shakespeare figures of speech from API
+        async function fetchShakespeareData() {
+            try {
+                const response = await fetch('https://myshakespeare.me/wp-json/wp/v2/figures_of_speech?per_page=100');
+                const data = await response.json();
+                
+                // Convert API response to CSV format
+                const rows = ['Name,Description'];
+                data.forEach(item => {
+                    const name = item.name || '';
+                    // Strip HTML tags from description
+                    const description = (item.description || '').replace(/<[^>]*>/g, '').trim();
+                    // Escape commas in description
+                    const escapedDesc = description.includes(',') ? `"${description}"` : description;
+                    rows.push(`${name},${escapedDesc}`);
+                });
+                
+                DEFAULT_DATA = rows.join('\n');
+                isLoadingData = false;
+                
+                // Trigger app initialization if it was waiting
+                if (window.flashcardAppInstance) {
+                    window.flashcardAppInstance.loadProgress();
+                    window.flashcardAppInstance.render();
+                }
+            } catch (error) {
+                console.error('Error fetching Shakespeare data:', error);
+                // Fallback to empty data
+                DEFAULT_DATA = 'Name,Description';
+                isLoadingData = false;
+                
+                if (window.flashcardAppInstance) {
+                    window.flashcardAppInstance.loadProgress();
+                    window.flashcardAppInstance.render();
+                }
+            }
+        }
+
+        // Fetch data on page load
+        fetchShakespeareData();
 
         class FlashcardApp {
             constructor() {
@@ -47,8 +79,13 @@ Oxymoron,Oxymoron (ok-si-mor'-on) is the combining of contradictory or opposite 
             }
 
             init() {
-                this.loadProgress();
-                this.render();
+                if (isLoadingData) {
+                    // Show loading state and wait for data
+                    this.render();
+                } else {
+                    this.loadProgress();
+                    this.render();
+                }
             }
 
             loadProgress() {
@@ -315,6 +352,17 @@ Python,A high-level programming language"
             renderFlashcards() {
                 const stats = this.getStats();
                 
+                if (isLoadingData) {
+                    return `
+                        <div class="p-8 flex items-center justify-center h-screen">
+                            <div class="text-center">
+                                <div class="text-xl text-amber-800 mb-4">Loading Shakespeare flashcards...</div>
+                                <div class="animate-pulse text-4xl">📚</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
                 if (this.cards.length === 0) {
                     return '<div class="p-8 flex items-center justify-center"><div class="text-xl text-amber-800">No flashcards loaded</div></div>';
                 }
@@ -549,8 +597,8 @@ Python,A high-level programming language"
             }
         }
 
-        // Initialize the app
-        new FlashcardApp();
+        // Initialize the app and store instance globally
+        window.flashcardAppInstance = new FlashcardApp();
     </script>
 </body>
 </html>
