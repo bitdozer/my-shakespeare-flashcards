@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaced Repetition Flashcard App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .text-amber-900 a {
+            text-decoration: underline;
+            color: #78350f;
+        }
+        .text-amber-900 a:hover {
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Lucide React icons as inline SVG components
+        const RotateCcw = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M8 16H3v5" />
+            </svg>
+        );
+
+        const Upload = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" x2="12" y1="3" y2="15" />
+            </svg>
+        );
+
+        const CheckCircle = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <path d="m9 11 3 3L22 4" />
+            </svg>
+        );
+
+        const XCircle = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m15 9-6 6" />
+                <path d="m9 9 6 6" />
+            </svg>
+        );
+
+        const BarChart3 = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18" />
+                <path d="M18 17V9" />
+                <path d="M13 17V5" />
+                <path d="M8 17v-3" />
+            </svg>
+        );
+
+        const FileText = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                <path d="M10 9H8" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+            </svg>
+        );
+
+        const Search = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+            </svg>
+        );
+
+        const X = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+            </svg>
+        );
+
+        const ArrowDownAZ = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m3 16 4 4 4-4" />
+                <path d="M7 20V4" />
+                <path d="M20 8h-5" />
+                <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10" />
+                <path d="M15 14h5l-5 6h5" />
+            </svg>
+        );
+
+        const Shuffle = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22" />
+                <path d="m18 2 4 4-4 4" />
+                <path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2" />
+                <path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8" />
+                <path d="m18 14 4 4-4 4" />
+            </svg>
+        );
+
+        const ChevronLeft = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 18-6-6 6-6" />
+            </svg>
+        );
+
+        const ChevronRight = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 18 6-6-6-6" />
+            </svg>
+        );
+
+        const DEFAULT_DATA = `Name,Description
+Acyrologia,"<p>Acyrologia (ak-ir-o-lo'-gi-a) is an unintended use of the wrong word often by someone attempting to sound educated or erudite. ""<em>O, villain! Thou wilt be condemned</em> <em>into everlasting redemption for this!"" <a href=""https://myshakespeare.me/quotes/let-the-watch-come-forth/"">Much Ado About Nothing, 4.2.38</a></em>. Dogberry used ""redemption"" instead of ""damnation."" The modern term for this figure is <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/malapropism/"">malapropism</a>.  <em>Malapropism</em> is a [tooltip title=""A new, deliberately invented  word.""]<span style=""text-decoration: underline"">neologism</span>[/tooltip] inspired by the name of the character Mrs. Malaprop, in Richard Sheridan's <em>The Rivals</em>, 1775. Her name is an abbreviated [tooltip title=""A neologism created by combining two words.""] <span style=""text-decoration: underline"">portmanteau</span>[/tooltip] that combines the prefix <em>mal. </em>meaning<em> bad,</em> with <em>appropriate</em>.</p>"
+Adnominatio,"<p>Adnominatio (ad-no-mi-na'-ti-o) is the assigning to a proper name its literal or homophonic meaning. <em>""<strong>Falstaff</strong>: Is thy name Mouldy? <strong>Mouldy</strong>: Yea, an't please you. <strong>Falstaff</strong>: 'Tis the more time thou wert used. <strong>Shallow</strong>: Ha, ha, ha! most excellent, i' faith! Things that are mouldy lack use: very singular good! in faith, well said, Sir John, very well said.""</em> <a href=""https://myshakespeare.me/quotes/fie-this-is-hot-weather-gentlemen/""><em>Henry IV Pt2</em>, <em>3.2.96. </em></a>Related to <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/paronomasia/"">paronomasia</a> and <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/polyptoton/"">polyptoton</a>.</p>"
+Adynaton,"<p>Adynaton (a-dyn'-a-ton) is an extreme form of <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/hyperbole/"">hyperbole</a> in which the exaggeration could not possibly happen in reality. <em>""Will all great Neptune's ocean wash this blood Clean from my hand?""</em> <a href=""https://myshakespeare.me/quotes/will-great-neptunes-ocean-wash-blood/""><em>Macbeth</em>,<em> 2.2.78</em></a></p>"
+Alliosis,"<p>Alliosis (al'-e-o'-sis) is the use of alternatives or choices in a balanced and parallel structure. Such a structure may result in a false dichotomy but it can create a cleverly balanced and artistic sentence. <em>""Better it were a brother died at once, / Than that a sister, by redeeming him, / Should die forever.""</em> <a href=""https://myshakespeare.me/quotes/admit-no-other-way/""><em>Measure for Measure, 2.4.95.</em></a> Similar to <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/antithesis/"">antithesis</a>, which presents contrasting or opposite ideas but not as alternatives.</p>"
+Alliteration,"<p>Alliteration (al-lit'-er-a'-shen) is the repetition of an initial, stressed consonant sound for two or more words. <em>""When to the sessions of sweet silent thought..."" <a href=""https://myshakespeare.me/quotes/sessions-sweet-silent-thought/"">Sonnet 30.</a></em> Alliteration is different from <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/consonance/"">consonance</a>, which is the repetition of a consonant sound on stressed or unstressed syllables that are not always at the beginnings of words. The repetition of ""s"" sounds, alliterative or consonant, is called sibilance.</p>"
+Allusion,"<p>Allusion (al'-lu-shun) is a brief and indirect reference to a person, place, thing or idea of historical, cultural, literary or political significance. <em>""I'll drown more sailors than the mermaid shall; / I'll slay more gazers than the basilisk;  /I'll play the orator as well as Nestor...""</em> <a href=""https://myshakespeare.me/quotes/ay-edward-will-use-women-honorably/""><em>Henry VI Pt 3</em>, <em>3.2.126</em></a></p>"
+Ambage,"<p>Ambage (am'-bij) is the excessive use of words in an ambiguous or indirect manner. <em>""But be contented when that fell arrest / Without all bail shall carry me away, / My life hath in this line some interest, / Which for memorial still with thee shall stay.""</em> <em><a href=""https://myshakespeare.me/quotes/but-be-contented-when-that-fell-arrest/"">Sonnet 74</a>. </em>Ambage is similar to <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/circumlocution/"">circumlocution</a>, in that both use excessive words and are indirect, but a circumlocution circles around the meaning and an ambage creates ambiguity.  Also see <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/periphrasis/"">periphrasis</a>.</p>"
+Ambiguity,"<p>Ambiguity (am-bee-gyuu'-ə-tē) is an expression that has more than one meaning. <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/pun/"">Puns</a> use ambiguity for humorous intent as when Mercutio plays on the meaning of <em>grave</em> when he says, <em>""Ask for me tomorrow, and you shall find me a grave man.""</em> <a href=""https://myshakespeare.me/quotes/i-am-hurt/""><em>Romeo and Juliet</em>,<em> 3.1.93</em></a></p>"
+Amplification,"<p>Amplification (am-plee-fə-kā'-shən) is an elaborate decoration of an argument to suggest copiousness or intensify emotional impact. ""<em>Ay, my good lord—""my lord,"" I should say rather. / 'Tis sin to flatter; ""good"" was little better: / ""Good Gloucester"" and ""good devil"" were alike, / And both preposterous: therefore, not ""good lord.""</em> <a href=""https://myshakespeare.me/quotes/good-day-my-lord-what-at-your-book-so-hard/""><em>Henry VI Pt3, 5.6.1</em></a><em>.</em></p>"
+Anadiplosis,"<p>Anadiplosis (an'-a-di-plo'-sis) is the repetition of a word or phrase that ends one clause and begins the next. <em>""Though Nature hath given us wit to flout at Fortune, hath not Fortune sent in this fool to cut off the argument?""</em> <a href=""https://myshakespeare.me/quotes/let-us-sit-mock-good-huswife-fortune-wheel/""><em>As You Like It</em>, <em>1.2.31</em></a><em>.</em> Extended anadiplosis is called <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/gradatio/"">gradatio</a>.</p>"
+Analogy,"<p>Analogy (a-nal'-o-gee) is a comparison between two situations for the purpose of explanation or clarification. <em>""What's in a name? That which we call a rose / By any other word would smell as sweet; / So Romeo would, were he not Romeo call'd.""</em> <a href=""https://myshakespeare.me/quotes/o-romeo-romeo-wherefore-art-thou-romeo/""><em>Romeo and Juliet, 2.2.36</em></a><em>.</em></p>"
+Anaphora,"<p>Anaphora (an-af'-o-ra) is the repetition of a word or phrase at the beginning of successive clauses or sentences. <em>""O, cursèd be the hand that made these holes; / Cursèd the heart that had the heart to do it; / Cursèd the blood that let this blood from hence.""</em> <a href=""https://myshakespeare.me/quotes/set-down-set-down-your-honorable-load/""><em>Richard III, 1.2.1</em></a> See also <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/mesodiplosis/"">mesodiplosis</a>, the repetition of words in the middle, and <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/epistrophe/"">epistrophe</a>, the repetition of words at the end.</p>"
+Anapodoton,"Anapodoton (an'-a-po'-do-ton) is a deliberate sentence fragment. <em>""No, not an oath! If not the face of men, / The sufferance of our souls, the time's abuse— / If these be motives weak, break off betimes, / And every man hence to his idle bed;""</em> <a href=""https://myshakespeare.me/quotes/let-us-swear-resolution/""><em>Julius Caesar</em>,<em> 2.1.124</em></a>"
+Anastrophe,"<p>Anastrophe (an-as'-tro-phee) is a type of <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/hyperbaton/"">hyperbaton</a> in which usually only a single word is misplaced or reversed from it expected order. Most often the adjective appears after the noun when we expect to find it before the noun. <em>""Plots have I laid, inductions dangerous, / By drunken prophecies, libels, and dreams, / To set my brother Clarence and the King / In deadly hate."" <a href=""https://myshakespeare.me/quotes/now-winter-discontent/"">Richard III,</a><a href=""https://myshakespeare.me/quotes/now-winter-discontent/""> </a><a href=""https://myshakespeare.me/quotes/now-winter-discontent/"">1.1.1.</a></em></p>"
+Antanaclasis,"<p>Antanaclasis (an'-ta-na-cla'-sis) is the repetition of a word with a shift of meaning. <em>""In fair Verona, where we lay our scene, / From ancient grudge break to new mutiny, / Where civil blood makes civil hands unclean."" <a href=""https://myshakespeare.me/quotes/two-households-alike-dignity/"">Romeo and Juliet</a></em>.<em><a href=""https://myshakespeare.me/quotes/two-households-alike-dignity/""> 1.1.1.</a></em> Related to <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/adnominatio/"">adnominatio,</a> <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/paronomasia/"">paronomasia</a> and <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/polyptoton/"">polyptoton</a>.</p>"
+Anthimeria,"Anthimeria (an-thi-mer'-i-a) is the substitution of one part of speech for another. A word is used as a different part of speech than it usually is. <em>""When the rain came to wet me once and the wind to make me chatter, when the thunder would not peace at my bidding,"" <a href=""https://myshakespeare.me/quotes/i-know-that-voice/"">King Lear,</a> <a href=""https://myshakespeare.me/quotes/i-know-that-voice/"">4.6.114.</a></em>"
+Anthropomorphism,"<p>Anthropomorphism is the portrayal of an animal with human abilities, <em>e.g.</em> speaking. It differs from <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/personification/"">personification</a>, which rhetorically portrays inanimate objects or abstractions with having human characteristics.</p>"
+Antimetabole,"<p>Antimetabole (an'-ti-me-ta'-bo-lee) is the repetition of words or phrases in an inverted or reverse order in which the phrases suggest opposing meanings. <em>""How</em> / <em>much better is it to weep at joy than to joy at weeping!""</em> <em><a href=""https://myshakespeare.me/quotes/i-find-here-that-don-pedro-hath-bestowed-much-honor/"">Much Ado About Nothing. 1.1.13</a></em>. Antimetabole is a type of <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/chiasmus/"">chiasmus</a>, which is a similar inversion but of actual words whose meanings are not necessarily opposite. <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/chiasmus/"">Chiasmus</a> is similar to <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/epanados/"">epanados,</a> which also repeats the terms after presenting them.</p>"
+Antithesis,"<p>Antithesis (an-tith'-e-sis) is the juxtaposition of contrasting or opposite ideas or words in a balanced or parallel construction. <em>""The evil that men do lives after them,</em> / <em>The good is oft interred with their bones;"" <a href=""https://myshakespeare.me/quotes/friends-romans-countrymen-lend-ears/"">Julius Caesar, 3.2.82</a></em>. Similar to <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/alliosis/"">alliosis</a>, which presents contrasting ideas as alternatives or choices. See also <a href=""https://myshakespeare.me/shakespeares-works/elements/figures-of-speech/by-name/dichotomy/"">dichotomy</a>.</p>"
+Zeugma,"<p>Zeugma (zoog-ma) is the use of a single word or phrase, often a verb, to govern or modify two or more other words, the governing word having different meanings as applied to the different words it governs. ""<em>Golden Lads, and Girls all must / As chimney-sweepers come to dust</em>"" <em>(Cymbeline 4.2.331)</em>. Sometimes the repetition is elided (see <a href=""https://myshakespeare.me/reading-will/figures-of-speech/figures-of-speech-by-name/ellipsis/"">ellipsis</a>), as in, ""<em>Let's have a dance ere we are married, that we may lighten our own hearts and our wives' heels</em>"" (<em>Much Ado About Nothing 5.4.121</em>). <em>Zeugma</em> is sometimes used interchangeably with <em>syllepsis</em> but some rhetoricians argue there are differences between the two. This website treats all variations as zeugmas.</p>"`;
+
+        function FlashcardApp() {
+            const [cards, setCards] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [isFlipped, setIsFlipped] = useState(false);
+            const [showStats, setShowStats] = useState(false);
+            const [showImport, setShowImport] = useState(false);
+            const [csvText, setCsvText] = useState('');
+            const [initialized, setInitialized] = useState(false);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filteredCards, setFilteredCards] = useState([]);
+
+            useEffect(() => {
+                loadProgress();
+            }, []);
+
+            useEffect(() => {
+                if (searchTerm.trim() === '') {
+                    setFilteredCards(cards);
+                } else {
+                    const term = searchTerm.toLowerCase();
+                    const filtered = cards.filter(card => {
+                        const nameText = card.name.toLowerCase();
+                        const descText = card.description.replace(/<[^>]*>/g, '').toLowerCase();
+                        return nameText.includes(term) || descText.includes(term);
+                    });
+                    setFilteredCards(filtered);
+                    setCurrentIndex(0);
+                    setIsFlipped(false);
+                }
+            }, [searchTerm, cards]);
+
+            const loadProgress = () => {
+                try {
+                    const saved = localStorage.getItem('flashcard-progress');
+                    if (saved) {
+                        const savedCards = JSON.parse(saved);
+                        setCards(savedCards);
+                    } else {
+                        const parsed = parseCSV(DEFAULT_DATA);
+                        setCards(parsed);
+                        saveProgress(parsed);
+                    }
+                } catch (error) {
+                    const parsed = parseCSV(DEFAULT_DATA);
+                    setCards(parsed);
+                    saveProgress(parsed);
+                }
+                setInitialized(true);
+            };
+
+            const saveProgress = (updatedCards) => {
+                try {
+                    localStorage.setItem('flashcard-progress', JSON.stringify(updatedCards));
+                } catch (error) {
+                    console.error('Failed to save progress:', error);
+                }
+            };
+
+            const parseCSV = (text) => {
+                const lines = text.trim().split('\n');
+                const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+                
+                const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
+                const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('desc'));
+                
+                const parsedCards = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (!line.trim()) continue;
+                    
+                    const values = [];
+                    let currentValue = '';
+                    let insideQuotes = false;
+                    
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        
+                        if (char === '"') {
+                            insideQuotes = !insideQuotes;
+                        } else if (char === ',' && !insideQuotes) {
+                            values.push(currentValue.trim());
+                            currentValue = '';
+                        } else {
+                            currentValue += char;
+                        }
+                    }
+                    values.push(currentValue.trim());
+                    
+                    const name = (values[nameIndex] || values[0] || '').replace(/^["']|["']$/g, '');
+                    const description = (values[descIndex] || values[1] || '').replace(/^["']|["']$/g, '');
+                    
+                    if (name && description) {
+                        parsedCards.push({
+                            id: i - 1,
+                            name: name,
+                            description: description,
+                            status: 'new',
+                            reviewCount: 0,
+                            lastReviewed: null,
+                            weight: 1
+                        });
+                    }
+                }
+
+                return shuffleCards(parsedCards);
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const parsed = parseCSV(event.target.result);
+                        setCards(parsed);
+                        saveProgress(parsed);
+                        setShowImport(false);
+                        setCurrentIndex(0);
+                        setIsFlipped(false);
+                        setSearchTerm('');
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const handlePasteCSV = () => {
+                const parsed = parseCSV(csvText);
+                setCards(parsed);
+                saveProgress(parsed);
+                setShowImport(false);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+                setCsvText('');
+                setSearchTerm('');
+            };
+
+            const handleLoadDefault = () => {
+                const parsed = parseCSV(DEFAULT_DATA);
+                setCards(parsed);
+                saveProgress(parsed);
+                setShowImport(false);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+                setSearchTerm('');
+            };
+
+            const shuffleCards = (cardList) => {
+                const weighted = [];
+                cardList.forEach(card => {
+                    const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
+                    for (let i = 0; i < weight; i++) {
+                        weighted.push(card);
+                    }
+                });
+                
+                for (let i = weighted.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [weighted[i], weighted[j]] = [weighted[j], weighted[i]];
+                }
+                
+                return weighted.map(card => ({ ...card }));
+            };
+
+            const markCard = (status) => {
+                if (filteredCards.length === 0) return;
+
+                const currentCard = filteredCards[currentIndex];
+                const updatedCards = cards.map(card => {
+                    if (card.id === currentCard.id) {
+                        return {
+                            ...card,
+                            status,
+                            reviewCount: card.reviewCount + 1,
+                            lastReviewed: new Date().toISOString(),
+                            weight: status === 'needs-review' ? Math.min(card.weight + 1, 5) : Math.max(card.weight - 0.5, 1)
+                        };
+                    }
+                    return card;
+                });
+
+                setCards(updatedCards);
+                saveProgress(updatedCards);
+                
+                setIsFlipped(false);
+                if (currentIndex < filteredCards.length - 1) {
+                    setCurrentIndex(currentIndex + 1);
+                } else {
+                    if (searchTerm.trim() === '') {
+                        const reshuffled = shuffleCards(updatedCards);
+                        setCards(reshuffled);
+                    }
+                    setCurrentIndex(0);
+                }
+            };
+
+            const resetProgress = () => {
+                const parsed = parseCSV(DEFAULT_DATA);
+                setCards(parsed);
+                saveProgress(parsed);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+                setShowStats(false);
+                setSearchTerm('');
+            };
+
+            const alphabetizeCards = () => {
+                const sorted = [...cards].sort((a, b) => a.name.localeCompare(b.name));
+                setCards(sorted);
+                saveProgress(sorted);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+            };
+
+            const randomizeCards = () => {
+                const shuffled = shuffleCards(cards);
+                setCards(shuffled);
+                saveProgress(shuffled);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+            };
+
+            const stats = cards.reduce((acc, card) => {
+                acc.total++;
+                if (card.status === 'known') acc.known++;
+                if (card.status === 'needs-review') acc.needsReview++;
+                if (card.status === 'new') acc.new++;
+                return acc;
+            }, { total: 0, known: 0, needsReview: 0, new: 0 });
+
+            if (!initialized) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8 flex items-center justify-center">
+                        <div className="text-xl text-amber-800">Loading flashcards...</div>
+                    </div>
+                );
+            }
+
+            if (showImport) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+                        <div className="max-w-2xl mx-auto">
+                            <h1 className="text-4xl font-bold text-amber-900 mb-8 text-center">📚 Import Flashcards</h1>
+                            
+                            <div className="bg-white rounded-xl shadow-lg p-8 mb-4 border-2 border-amber-200">
+                                <h2 className="text-2xl font-semibold mb-6 text-amber-900">Choose Import Method</h2>
+                                
+                                <div className="mb-6">
+                                    <button
+                                        onClick={handleLoadDefault}
+                                        className="w-full bg-amber-700 text-white py-4 px-6 rounded-lg hover:bg-amber-800 transition flex items-center justify-center gap-2 font-semibold mb-4"
+                                    >
+                                        <FileText className="w-5 h-5" />
+                                        Use Default Vocabulary List (20 terms)
+                                    </button>
+                                </div>
+
+                                <div className="text-center text-gray-500 mb-6">OR</div>
+
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Upload Your Own CSV File
+                                    </label>
+                                    <div className="flex items-center justify-center w-full">
+                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-amber-300 rounded-lg cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition">
+                                            <Upload className="w-10 h-10 text-gray-400 mb-2" />
+                                            <span className="text-sm text-gray-500">Click to upload CSV</span>
+                                            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="text-center text-gray-500 mb-6">OR</div>
+
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Paste CSV Data
+                                    </label>
+                                    <textarea
+                                        value={csvText}
+                                        onChange={(e) => setCsvText(e.target.value)}
+                                        placeholder="Name,Description&#10;React,A JavaScript library for building user interfaces&#10;Python,A high-level programming language"
+                                        className="w-full h-40 px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                    />
+                                    <button
+                                        onClick={handlePasteCSV}
+                                        disabled={!csvText}
+                                        className="mt-4 w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                                    >
+                                        Import Custom Flashcards
+                                    </button>
+                                </div>
+
+                                <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                                    <p className="font-medium mb-2">Expected CSV format:</p>
+                                    <p>First row: Column headers (must include "Name" and "Description")</p>
+                                    <p>Following rows: Your flashcard data</p>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    setShowImport(false);
+                                    setSearchTerm('');
+                                }}
+                                className="w-full max-w-2xl bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 transition"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (showStats) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+                        <div className="max-w-2xl mx-auto">
+                            <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-amber-200">
+                                <h2 className="text-3xl font-bold mb-6 text-amber-900 flex items-center gap-2">
+                                    <BarChart3 className="w-8 h-8" />
+                                    Progress Statistics
+                                </h2>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-8">
+                                    <div className="bg-amber-50 p-6 rounded-lg border-2 border-amber-400">
+                                        <div className="text-4xl font-bold text-amber-700">{stats.known}</div>
+                                        <div className="text-sm text-gray-600">Known Cards</div>
+                                    </div>
+                                    <div className="bg-orange-50 p-6 rounded-lg border-2 border-orange-400">
+                                        <div className="text-4xl font-bold text-orange-700">{stats.needsReview}</div>
+                                        <div className="text-sm text-gray-600">Needs Review</div>
+                                    </div>
+                                    <div className="bg-amber-50 p-6 rounded-lg border-2 border-amber-300">
+                                        <div className="text-4xl font-bold text-amber-700">{stats.new}</div>
+                                        <div className="text-sm text-gray-600">New Cards</div>
+                                    </div>
+                                    <div className="bg-orange-50 p-6 rounded-lg border-2 border-orange-300">
+                                        <div className="text-4xl font-bold text-orange-700">{stats.total}</div>
+                                        <div className="text-sm text-gray-600">Total Cards</div>
+                                    </div>
+                                </div>
+
+                                <div className="mb-6">
+                                    <div className="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span>Progress</span>
+                                        <span>{Math.round((stats.known / stats.total) * 100)}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-4">
+                                        <div
+                                            className="bg-amber-600 h-4 rounded-full transition-all"
+                                            style={{ width: `${(stats.known / stats.total) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-4">
+                                    <button
+                                        onClick={() => {
+                                            setShowStats(false);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-amber-700 text-white py-3 px-6 rounded-lg hover:bg-amber-800 transition"
+                                    >
+                                        Continue Studying
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowImport(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition flex items-center justify-center gap-2"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        Import Different Flashcards
+                                    </button>
+                                    <button
+                                        onClick={resetProgress}
+                                        className="bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
+                                    >
+                                        <RotateCcw className="w-4 h-4" />
+                                        Reset Progress (Keep Current Cards)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (cards.length === 0) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8 flex items-center justify-center">
+                        <div className="text-xl text-amber-800">No flashcards loaded</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+                    <div className="max-w-2xl mx-auto">
+                        <div className="mb-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-amber-900" style={{ fontFamily: 'Papyrus, fantasy' }}>📚 Figures of Speech Flashcards</h1>
+                                    <a 
+                                        href="https://myshakespeare.me" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-amber-700 underline hover:text-amber-900"
+                                    >
+                                        myShakespeare.me
+                                    </a>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowStats(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                    >
+                                        <BarChart3 className="w-5 h-5" />
+                                        Stats
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowImport(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                    >
+                                        <Upload className="w-5 h-5" />
+                                        Import
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-4 flex gap-2 items-center">
+                            <button
+                                onClick={alphabetizeCards}
+                                className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                            >
+                                <ArrowDownAZ className="w-5 h-5" />
+                                Alphabetize
+                            </button>
+                            <button
+                                onClick={randomizeCards}
+                                className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                            >
+                                <Shuffle className="w-5 h-5" />
+                                Randomize
+                            </button>
+                            <div className="relative flex-1 max-w-sm">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-600 w-5 h-5" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Search flashcards..."
+                                    className="w-full pl-10 pr-10 py-2 border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm('')}
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-amber-600"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {searchTerm && (
+                            <div className="text-sm text-amber-700 mb-4">
+                                Found {filteredCards.length} card{filteredCards.length !== 1 ? 's' : ''}
+                            </div>
+                        )}
+
+                        {filteredCards.length === 0 ? (
+                            <div className="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-amber-200">
+                                <Search className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                                <h3 className="text-xl font-semibold text-amber-900 mb-2">No cards found</h3>
+                                <p className="text-gray-600">Try a different search term</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
+                                    <div className="text-sm text-gray-500 mb-4">
+                                        Card {currentIndex + 1} of {filteredCards.length}
+                                    </div>
+
+                                    <div
+                                        onClick={() => setIsFlipped(!isFlipped)}
+                                        className="min-h-64 flex items-center justify-center cursor-pointer bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg p-8 mb-6 hover:from-amber-200 hover:to-orange-200 transition"
+                                    >
+                                        <div className="text-center w-full">
+                                            {!isFlipped ? (
+                                                <div className="text-2xl font-bold text-amber-900">{filteredCards[currentIndex].name}</div>
+                                            ) : (
+                                                <div 
+                                                    className="text-xl text-amber-900"
+                                                    style={{ lineHeight: '1.6' }}
+                                                    dangerouslySetInnerHTML={{ __html: filteredCards[currentIndex].description }} 
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="text-center text-sm text-gray-500 mb-4">
+                                        Click card to flip
+                                    </div>
+
+                                    {isFlipped && (
+                                        <div className="flex gap-4 mb-4">
+                                            <button
+                                                onClick={() => markCard('needs-review')}
+                                                className="flex-1 bg-amber-500 text-white py-4 px-6 rounded-lg hover:bg-amber-600 transition flex items-center justify-center gap-2 font-semibold"
+                                            >
+                                                <XCircle className="w-5 h-5" />
+                                                Needs Review
+                                            </button>
+                                            <button
+                                                onClick={() => markCard('known')}
+                                                className="flex-1 bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition flex items-center justify-center gap-2 font-semibold"
+                                            >
+                                                <CheckCircle className="w-5 h-5" />
+                                                I Know This
+                                            </button>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => {
+                                                setIsFlipped(false);
+                                                if (currentIndex > 0) {
+                                                    setCurrentIndex(currentIndex - 1);
+                                                } else {
+                                                    setCurrentIndex(filteredCards.length - 1);
+                                                }
+                                            }}
+                                            className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
+                                        >
+                                            <ChevronLeft className="w-5 h-5" />
+                                            Previous Card
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsFlipped(false);
+                                                if (currentIndex < filteredCards.length - 1) {
+                                                    setCurrentIndex(currentIndex + 1);
+                                                } else {
+                                                    setCurrentIndex(0);
+                                                }
+                                            }}
+                                            className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
+                                        >
+                                            Next Card
+                                            <ChevronRight className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow p-4 border-2 border-amber-200">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-amber-700">✓ Known: {stats.known}</span>
+                                        <span className="text-orange-700">⚠ Review: {stats.needsReview}</span>
+                                        <span className="text-amber-700">● New: {stats.new}</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<FlashcardApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>

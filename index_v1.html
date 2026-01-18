@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spaced Repetition Flashcard App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .card-flip {
+            transition: transform 0.3s;
+        }
+        .card-flip:hover {
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50">
+    <div id="app"></div>
+
+    <script>
+        let DEFAULT_DATA = null;
+        let isLoadingData = true;
+
+        // Fetch Shakespeare figures of speech from API
+        async function fetchShakespeareData() {
+            try {
+                const response = await fetch('https://myshakespeare.me/wp-json/wp/v2/figures_of_speech?per_page=100');
+                const data = await response.json();
+                
+                console.log(`Fetched ${data.length} items from API`);
+                
+                // Convert API response to CSV format
+                const rows = ['Name,Description'];
+                data.forEach(item => {
+                    const name = item.name || '';
+                    // Keep HTML in description, just trim whitespace
+                    let description = (item.description || '').trim();
+                    // Filter out WordPress shortcodes (tooltip, etc.) - see cleanWordPressShortcodes function
+                    description = cleanWordPressShortcodes(description);
+                    // Properly escape for CSV: wrap in quotes and escape internal quotes
+                    const escapedDesc = `"${description.replace(/"/g, '""')}"`;
+                    rows.push(`${name},${escapedDesc}`);
+                });
+                
+                console.log(`Created CSV with ${rows.length - 1} cards`);
+                DEFAULT_DATA = rows.join('\n');
+                isLoadingData = false;
+                
+                // Trigger app initialization if it was waiting
+                if (window.flashcardAppInstance) {
+                    window.flashcardAppInstance.loadProgress();
+                    window.flashcardAppInstance.render();
+                }
+            } catch (error) {
+                console.error('Error fetching Shakespeare data:', error);
+                // Fallback to empty data
+                DEFAULT_DATA = 'Name,Description';
+                isLoadingData = false;
+                
+                if (window.flashcardAppInstance) {
+                    window.flashcardAppInstance.loadProgress();
+                    window.flashcardAppInstance.render();
+                }
+            }
+        }
+
+        // Fetch data on page load
+        fetchShakespeareData();
+
+        // Helper function to clean WordPress shortcodes from descriptions
+        // Removes [tooltip title="..."]content[/tooltip] patterns while keeping the content
+        // This filtering is applied to descriptions from both API and CSV uploads
+        function cleanWordPressShortcodes(text) {
+            if (!text) return text;
+            
+            // Remove tooltip shortcodes: [tooltip title="..."]content[/tooltip] -> content
+            text = text.replace(/\[tooltip[^\]]*\]([^\[]*?)\[\/tooltip\]/gi, '$1');
+            
+            // Add additional WordPress shortcode patterns here if needed in the future
+            
+            return text;
+        }
+
+        class FlashcardApp {
+            constructor() {
+                this.cards = [];
+                this.currentIndex = 0;
+                this.isFlipped = false;
+                this.showStats = false;
+                this.showImport = false;
+                this.csvText = '';
+                this.searchTerm = '';
+                this.filteredCards = [];
+                this.init();
+            }
+
+            init() {
+                if (isLoadingData) {
+                    // Show loading state and wait for data
+                    this.render();
+                } else {
+                    this.loadProgress();
+                    this.render();
+                }
+            }
+
+            loadProgress() {
+                const saved = localStorage.getItem('flashcard-progress');
+                let savedProgress = saved ? JSON.parse(saved) : null;
+                
+                // Always use fresh data from API
+                this.cards = this.parseCSV(DEFAULT_DATA);
+                console.log(`After parseCSV: ${this.cards.length} cards`);
+                
+                // Restore progress for cards that existed before (match by name)
+                if (savedProgress && savedProgress.length > 0) {
+                    const progressMap = new Map();
+                    savedProgress.forEach(card => {
+                        progressMap.set(card.name, {
+                            status: card.status,
+                            reviewCount: card.reviewCount,
+                            lastReviewed: card.lastReviewed,
+                            weight: card.weight
+                        });
+                    });
+                    
+                    this.cards = this.cards.map(card => {
+                        const progress = progressMap.get(card.name);
+                        if (progress) {
+                            return { ...card, ...progress };
+                        }
+                        return card;
+                    });
+                    
+                    console.log(`Restored progress for ${progressMap.size} existing cards`);
+                }
+                
+                this.saveProgress();
+                this.updateFilteredCards();
+                console.log(`After updateFilteredCards: ${this.filteredCards.length} filtered cards`);
+            }
+
+            saveProgress() {
+                localStorage.setItem('flashcard-progress', JSON.stringify(this.cards));
+            }
+
+            parseCSV(text) {
+                const lines = text.trim().split('\n');
+                const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+                
+                const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
+                const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('desc'));
+                
+                const parsedCards = [];
+                
+                // Better CSV parsing that handles multi-line quoted fields
+                let i = 1;
+                while (i < lines.length) {
+                    if (!lines[i].trim()) {
+                        i++;
+                        continue;
+                    }
+                    
+                    let fullLine = lines[i];
+                    
+                    // Check if we're inside a quoted field that spans multiple lines
+                    let quoteCount = (fullLine.match(/"/g) || []).length;
+                    while (quoteCount % 2 !== 0 && i + 1 < lines.length) {
+                        i++;
+                        fullLine += '\n' + lines[i];
+                        quoteCount = (fullLine.match(/"/g) || []).length;
+                    }
+                    
+                    const values = [];
+                    let currentValue = '';
+                    let insideQuotes = false;
+                    
+                    for (let j = 0; j < fullLine.length; j++) {
+                        const char = fullLine[j];
+                        
+                        if (char === '"') {
+                            // Handle escaped quotes ("")
+                            if (insideQuotes && fullLine[j + 1] === '"') {
+                                currentValue += '"';
+                                j++; // Skip next quote
+                            } else {
+                                insideQuotes = !insideQuotes;
+                            }
+                        } else if (char === ',' && !insideQuotes) {
+                            values.push(currentValue.trim());
+                            currentValue = '';
+                        } else {
+                            currentValue += char;
+                        }
+                    }
+                    values.push(currentValue.trim());
+                    
+                    const name = (values[nameIndex] || values[0] || '').replace(/^["']|["']$/g, '');
+                    let description = (values[descIndex] || values[1] || '').replace(/^["']|["']$/g, '');
+                    
+                    // Filter out WordPress shortcodes from uploaded CSV as well
+                    description = cleanWordPressShortcodes(description);
+                    
+                    if (name && description) {
+                        parsedCards.push({
+                            id: parsedCards.length,
+                            name: name,
+                            description: description,
+                            status: 'new',
+                            reviewCount: 0,
+                            lastReviewed: null,
+                            weight: 1
+                        });
+                    }
+                    
+                    i++;
+                }
+
+                console.log(`Parsed ${parsedCards.length} cards from CSV`);
+                return this.shuffleCards(parsedCards);
+            }
+
+            shuffleCards(cardList) {
+                console.log(`shuffleCards input: ${cardList.length} cards`);
+                const weighted = [];
+                cardList.forEach(card => {
+                    const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
+                    for (let i = 0; i < weight; i++) {
+                        weighted.push(card);
+                    }
+                });
+                
+                console.log(`After weighting: ${weighted.length} cards`);
+                
+                for (let i = weighted.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [weighted[i], weighted[j]] = [weighted[j], weighted[i]];
+                }
+                
+                const result = weighted.map(card => ({ ...card }));
+                console.log(`shuffleCards output: ${result.length} cards`);
+                return result;
+            }
+
+            updateFilteredCards() {
+                if (this.searchTerm.trim() === '') {
+                    this.filteredCards = this.cards;
+                } else {
+                    const term = this.searchTerm.toLowerCase();
+                    this.filteredCards = this.cards.filter(card => {
+                        const nameText = card.name.toLowerCase();
+                        // Strip HTML tags only for searching, not for display
+                        const descText = card.description.replace(/<[^>]*>/g, '').toLowerCase();
+                        return nameText.includes(term) || descText.includes(term);
+                    });
+                    this.currentIndex = 0;
+                    this.isFlipped = false;
+                }
+            }
+
+            markCard(status) {
+                if (this.filteredCards.length === 0) return;
+
+                const currentCard = this.filteredCards[this.currentIndex];
+                this.cards = this.cards.map(card => {
+                    if (card.id === currentCard.id) {
+                        return {
+                            ...card,
+                            status,
+                            reviewCount: card.reviewCount + 1,
+                            lastReviewed: new Date().toISOString(),
+                            weight: status === 'needs-review' ? Math.min(card.weight + 1, 5) : Math.max(card.weight - 0.5, 1)
+                        };
+                    }
+                    return card;
+                });
+
+                this.saveProgress();
+                
+                this.isFlipped = false;
+                if (this.currentIndex < this.filteredCards.length - 1) {
+                    this.currentIndex++;
+                } else {
+                    if (this.searchTerm.trim() === '') {
+                        this.cards = this.shuffleCards(this.cards);
+                    }
+                    this.currentIndex = 0;
+                }
+                this.updateFilteredCards();
+                this.render();
+            }
+
+            getStats() {
+                return this.cards.reduce((acc, card) => {
+                    acc.total++;
+                    if (card.status === 'known') acc.known++;
+                    if (card.status === 'needs-review') acc.needsReview++;
+                    if (card.status === 'new') acc.new++;
+                    return acc;
+                }, { total: 0, known: 0, needsReview: 0, new: 0 });
+            }
+
+            render() {
+                const app = document.getElementById('app');
+                
+                if (this.showImport) {
+                    app.innerHTML = this.renderImport();
+                } else if (this.showStats) {
+                    app.innerHTML = this.renderStats();
+                } else {
+                    app.innerHTML = this.renderFlashcards();
+                }
+                
+                this.attachEventListeners();
+            }
+
+            renderImport() {
+                return `
+                    <div class="p-8">
+                        <div class="max-w-2xl mx-auto">
+                            <h1 class="text-4xl font-bold text-gray-800 mb-8 text-center">📚 Import Flashcards</h1>
+                            
+                            <div class="bg-white rounded-xl shadow-lg p-8 mb-4">
+                                <h2 class="text-2xl font-semibold mb-6 text-gray-700">Choose Import Method</h2>
+                                
+                                <button id="loadDefault" class="w-full bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 transition mb-4">
+                                    Use Default Vocabulary List
+                                </button>
+
+                                <div class="text-center text-gray-500 mb-6">OR</div>
+
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Upload Your Own CSV File
+                                    </label>
+                                    <input type="file" id="csvFile" accept=".csv" class="w-full px-4 py-2 border border-amber-300 rounded-lg">
+                                </div>
+
+                                <div class="text-center text-gray-500 mb-6">OR</div>
+
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Paste CSV Data
+                                    </label>
+                                    <textarea id="csvText" placeholder="Name,Description
+React,A JavaScript library for building user interfaces
+Python,A high-level programming language" 
+                                        class="w-full h-40 px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"></textarea>
+                                    <button id="pasteCSV" class="mt-4 w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition">
+                                        Import Custom Flashcards
+                                    </button>
+                                </div>
+
+                                <div class="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                                    <p class="font-medium mb-2">Expected CSV format:</p>
+                                    <p>First row: Column headers (must include "Name" and "Description")</p>
+                                    <p>Following rows: Your flashcard data</p>
+                                </div>
+                            </div>
+
+                            <button id="cancelImport" class="w-full bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderStats() {
+                const stats = this.getStats();
+                const progress = Math.round((stats.known / stats.total) * 100);
+                
+                return `
+                    <div class="p-8">
+                        <div class="max-w-2xl mx-auto">
+                            <div class="bg-white rounded-xl shadow-lg p-8 border-2 border-amber-200">
+                                <h2 class="text-3xl font-bold mb-6 text-amber-900">📊 Progress Statistics</h2>
+                                
+                                <div class="grid grid-cols-2 gap-4 mb-8">
+                                    <div class="bg-green-50 p-6 rounded-lg border-2 border-green-300">
+                                        <div class="text-4xl font-bold text-green-700">${stats.known}</div>
+                                        <div class="text-sm text-gray-600">Known Cards</div>
+                                    </div>
+                                    <div class="bg-red-50 p-6 rounded-lg border-2 border-red-300">
+                                        <div class="text-4xl font-bold text-red-700">${stats.needsReview}</div>
+                                        <div class="text-sm text-gray-600">Needs Review</div>
+                                    </div>
+                                    <div class="bg-amber-50 p-6 rounded-lg border-2 border-amber-300">
+                                        <div class="text-4xl font-bold text-amber-700">${stats.new}</div>
+                                        <div class="text-sm text-gray-600">New Cards</div>
+                                    </div>
+                                    <div class="bg-orange-50 p-6 rounded-lg border-2 border-orange-300">
+                                        <div class="text-4xl font-bold text-orange-700">${stats.total}</div>
+                                        <div class="text-sm text-gray-600">Total Cards</div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-6">
+                                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span>Progress</span>
+                                        <span>${progress}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-4">
+                                        <div class="bg-amber-600 h-4 rounded-full transition-all" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-4">
+                                    <button id="continueStudy" class="bg-amber-700 text-white py-3 px-6 rounded-lg hover:bg-amber-800 transition">
+                                        Continue Studying
+                                    </button>
+                                    <button id="showImportBtn" class="bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition">
+                                        Import Different Flashcards
+                                    </button>
+                                    <button id="resetProgress" class="bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 transition">
+                                        Reset Progress
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderFlashcards() {
+                const stats = this.getStats();
+                
+                if (isLoadingData) {
+                    return `
+                        <div class="p-8 flex items-center justify-center h-screen">
+                            <div class="text-center">
+                                <div class="text-xl text-amber-800 mb-4">Loading Shakespeare flashcards...</div>
+                                <div class="animate-pulse text-4xl">📚</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (this.cards.length === 0) {
+                    return '<div class="p-8 flex items-center justify-center"><div class="text-xl text-amber-800">No flashcards loaded</div></div>';
+                }
+
+                return `
+                    <div class="p-8">
+                        <div class="max-w-2xl mx-auto">
+                            <div class="flex justify-between items-center mb-6">
+                                <h1 class="text-3xl font-bold text-amber-900">📚 Flashcards</h1>
+                                <div class="flex gap-2">
+                                    <button id="importBtn" class="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition">Import</button>
+                                    <button id="statsBtn" class="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition">Stats</button>
+                                </div>
+                            </div>
+
+                            <div class="mb-6 relative">
+                                <input type="text" id="searchInput" value="${this.searchTerm}" placeholder="Search flashcards..." 
+                                    class="w-full pl-10 pr-10 py-3 border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                                ${this.searchTerm ? `<div class="text-sm text-amber-700 mt-2">Found ${this.filteredCards.length} card${this.filteredCards.length !== 1 ? 's' : ''}</div>` : ''}
+                            </div>
+
+                            ${this.filteredCards.length === 0 ? `
+                                <div class="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-amber-200">
+                                    <h3 class="text-xl font-semibold text-amber-900 mb-2">No cards found</h3>
+                                    <p class="text-gray-600">Try a different search term</p>
+                                </div>
+                            ` : `
+                                <div class="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
+                                    <div class="text-sm text-gray-500 mb-4">
+                                        Card ${this.currentIndex + 1} of ${this.filteredCards.length}
+                                    </div>
+
+                                    <div id="flashcard" class="card-flip min-h-64 flex items-center justify-center cursor-pointer bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg p-8 mb-6 hover:from-amber-200 hover:to-orange-200 transition">
+                                        <div class="text-center w-full">
+                                            <div id="flashcardContent" class="${!this.isFlipped ? 'text-2xl font-bold text-amber-900' : 'text-xl text-amber-900'}" style="line-height: 1.6;"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="text-center text-sm text-gray-500 mb-4">
+                                        Click card to flip
+                                    </div>
+
+                                    ${this.isFlipped ? `
+                                        <div class="flex gap-4 mb-4">
+                                            <button id="needsReview" class="flex-1 bg-amber-500 text-white py-4 px-6 rounded-lg hover:bg-amber-600 transition font-semibold">
+                                                ✗ Needs Review
+                                            </button>
+                                            <button id="known" class="flex-1 bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition font-semibold">
+                                                ✓ I Know This
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <button id="skip" class="w-full bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition">
+                                        Skip / Next Card →
+                                    </button>
+                                </div>
+
+                                <div class="bg-white rounded-lg shadow p-4 border-2 border-amber-200">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-green-700">✓ Known: ${stats.known}</span>
+                                        <span class="text-red-700">⚠ Review: ${stats.needsReview}</span>
+                                        <span class="text-amber-700">● New: ${stats.new}</span>
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            attachEventListeners() {
+                // Import screen
+                const loadDefault = document.getElementById('loadDefault');
+                const csvFile = document.getElementById('csvFile');
+                const pasteCSV = document.getElementById('pasteCSV');
+                const cancelImport = document.getElementById('cancelImport');
+                
+                if (loadDefault) {
+                    loadDefault.onclick = () => {
+                        this.cards = this.parseCSV(DEFAULT_DATA);
+                        this.saveProgress();
+                        this.showImport = false;
+                        this.currentIndex = 0;
+                        this.isFlipped = false;
+                        this.searchTerm = '';
+                        this.updateFilteredCards();
+                        this.render();
+                    };
+                }
+                
+                if (csvFile) {
+                    csvFile.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                this.cards = this.parseCSV(event.target.result);
+                                this.saveProgress();
+                                this.showImport = false;
+                                this.currentIndex = 0;
+                                this.isFlipped = false;
+                                this.searchTerm = '';
+                                this.updateFilteredCards();
+                                this.render();
+                            };
+                            reader.readAsText(file);
+                        }
+                    };
+                }
+                
+                if (pasteCSV) {
+                    pasteCSV.onclick = () => {
+                        const csvText = document.getElementById('csvText').value;
+                        if (csvText) {
+                            this.cards = this.parseCSV(csvText);
+                            this.saveProgress();
+                            this.showImport = false;
+                            this.currentIndex = 0;
+                            this.isFlipped = false;
+                            this.searchTerm = '';
+                            this.updateFilteredCards();
+                            this.render();
+                        }
+                    };
+                }
+                
+                if (cancelImport) {
+                    cancelImport.onclick = () => {
+                        this.showImport = false;
+                        this.searchTerm = '';
+                        this.render();
+                    };
+                }
+
+                // Stats screen
+                const continueStudy = document.getElementById('continueStudy');
+                const showImportBtn = document.getElementById('showImportBtn');
+                const resetProgress = document.getElementById('resetProgress');
+                
+                if (continueStudy) {
+                    continueStudy.onclick = () => {
+                        this.showStats = false;
+                        this.searchTerm = '';
+                        this.render();
+                    };
+                }
+                
+                if (showImportBtn) {
+                    showImportBtn.onclick = () => {
+                        this.showImport = true;
+                        this.showStats = false;
+                        this.render();
+                    };
+                }
+                
+                if (resetProgress) {
+                    resetProgress.onclick = () => {
+                        this.cards = this.parseCSV(DEFAULT_DATA);
+                        this.saveProgress();
+                        this.currentIndex = 0;
+                        this.isFlipped = false;
+                        this.showStats = false;
+                        this.searchTerm = '';
+                        this.updateFilteredCards();
+                        this.render();
+                    };
+                }
+
+                // Main flashcard screen
+                const importBtn = document.getElementById('importBtn');
+                const statsBtn = document.getElementById('statsBtn');
+                const searchInput = document.getElementById('searchInput');
+                const flashcard = document.getElementById('flashcard');
+                const needsReview = document.getElementById('needsReview');
+                const known = document.getElementById('known');
+                const skip = document.getElementById('skip');
+                
+                if (importBtn) {
+                    importBtn.onclick = () => {
+                        this.showImport = true;
+                        this.searchTerm = '';
+                        this.render();
+                    };
+                }
+                
+                if (statsBtn) {
+                    statsBtn.onclick = () => {
+                        this.showStats = true;
+                        this.searchTerm = '';
+                        this.render();
+                    };
+                }
+                
+                if (searchInput) {
+                    searchInput.oninput = (e) => {
+                        const cursorPosition = e.target.selectionStart;
+                        this.searchTerm = e.target.value;
+                        this.updateFilteredCards();
+                        this.render();
+                        
+                        // Restore focus and cursor position after render
+                        setTimeout(() => {
+                            const newSearchInput = document.getElementById('searchInput');
+                            if (newSearchInput) {
+                                newSearchInput.focus();
+                                newSearchInput.setSelectionRange(cursorPosition, cursorPosition);
+                            }
+                        }, 0);
+                    };
+                }
+                
+                if (flashcard) {
+                    flashcard.onclick = () => {
+                        this.isFlipped = !this.isFlipped;
+                        this.render();
+                    };
+                }
+                
+                // Populate flashcard content with innerHTML to render HTML
+                const flashcardContent = document.getElementById('flashcardContent');
+                if (flashcardContent && this.filteredCards.length > 0) {
+                    if (!this.isFlipped) {
+                        flashcardContent.textContent = this.filteredCards[this.currentIndex].name;
+                    } else {
+                        flashcardContent.innerHTML = this.filteredCards[this.currentIndex].description;
+                    }
+                }
+                
+                if (needsReview) {
+                    needsReview.onclick = () => this.markCard('needs-review');
+                }
+                
+                if (known) {
+                    known.onclick = () => this.markCard('known');
+                }
+                
+                if (skip) {
+                    skip.onclick = () => {
+                        this.isFlipped = false;
+                        if (this.currentIndex < this.filteredCards.length - 1) {
+                            this.currentIndex++;
+                        } else {
+                            this.currentIndex = 0;
+                        }
+                        this.render();
+                    };
+                }
+            }
+        }
+
+        // Initialize the app and store instance globally
+        window.flashcardAppInstance = new FlashcardApp();
+    </script>
+</body>
+</html>
