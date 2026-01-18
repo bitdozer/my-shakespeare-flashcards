@@ -142,10 +142,19 @@
                 
                 // Convert API response to CSV format
                 const rows = ['Name,Description'];
-                data.forEach(item => {
+                let skipped = 0;
+                data.forEach((item, index) => {
                     const name = item.name || '';
                     // Keep HTML in description, just trim whitespace
                     let description = (item.description || '').trim();
+                    
+                    // Skip items with empty name or description
+                    if (!name || !description) {
+                        console.warn(`Skipping item ${index}: name="${name}", description length=${description.length}`);
+                        skipped++;
+                        return;
+                    }
+                    
                     // Filter out WordPress shortcodes
                     description = cleanWordPressShortcodes(description);
                     // Properly escape for CSV: wrap in quotes and escape internal quotes
@@ -153,7 +162,7 @@
                     rows.push(`${name},${escapedDesc}`);
                 });
                 
-                console.log(`Created CSV with ${rows.length - 1} cards`);
+                console.log(`Created CSV with ${rows.length - 1} cards (skipped ${skipped} items with missing data)`);
                 return rows.join('\n');
             } catch (error) {
                 console.error('Error fetching Shakespeare data:', error);
@@ -255,7 +264,10 @@
                 const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
                 const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('desc'));
                 
+                console.log(`parseCSV: Processing ${lines.length - 1} lines`);
+                
                 const parsedCards = [];
+                let cardCounter = 0; // Counter to ensure unique IDs
                 
                 // Better CSV parsing that handles multi-line quoted fields
                 let i = 1;
@@ -300,18 +312,21 @@
                     
                     if (name && description) {
                         parsedCards.push({
-                            id: Date.now() + Math.random(),
+                            id: `${Date.now()}-${cardCounter++}-${Math.random().toString(36).substr(2, 9)}`,
                             name,
                             description,
                             status: 'new',
                             weight: 5,
                             lastReviewed: null
                         });
+                    } else {
+                        console.warn(`parseCSV: Skipping line ${i} - name="${name}", description="${description.substring(0, 50)}..."`);
                     }
                     
                     i++;
                 }
 
+                console.log(`parseCSV: Parsed ${parsedCards.length} cards from CSV`);
                 return shuffleCards(parsedCards);
             };
 
