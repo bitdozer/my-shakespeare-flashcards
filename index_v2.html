@@ -631,157 +631,177 @@
             return (
                 <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
                     <div className="max-w-2xl mx-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h1 className="text-3xl font-bold text-amber-900">Flashcards</h1>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setShowImport(true)}
-                                    className="bg-white text-amber-800 p-3 rounded-lg border-2 border-amber-200 hover:bg-amber-50 transition"
-                                    title="Import Cards"
-                                >
-                                    <Upload className="w-5 h-5" />
-                                </button>
-                                <button
-                                    onClick={() => setShowStats(true)}
-                                    className="bg-white text-amber-800 p-3 rounded-lg border-2 border-amber-200 hover:bg-amber-50 transition"
-                                    title="View Stats"
-                                >
-                                    <BarChart3 className="w-5 h-5" />
-                                </button>
+                        <div className="mb-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-amber-900" style={{ fontFamily: 'Papyrus, fantasy' }}>📚 Figures of Speech Flashcards</h1>
+                                    <a 
+                                        href="https://myshakespeare.me" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-amber-700 underline hover:text-amber-900"
+                                    >
+                                        myShakespeare.me
+                                    </a>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowStats(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                    >
+                                        <BarChart3 className="w-5 h-5" />
+                                        Stats
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowImport(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                    >
+                                        <Upload className="w-5 h-5" />
+                                        Import
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="mb-6 relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-amber-600" />
-                            <input
-                                type="text"
-                                placeholder="Search flashcards..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-10 py-3 border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                            />
-                            {searchTerm && (
-                                <button
-                                    onClick={() => setSearchTerm('')}
-                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-amber-600 hover:text-amber-800"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            )}
+                        <div className="mb-4 flex gap-2 items-center">
+                            <button
+                                onClick={alphabetizeCards}
+                                className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                            >
+                                <ArrowDownAZ className="w-5 h-5" />
+                                Alphabetize
+                            </button>
+                            <button
+                                onClick={randomizeCards}
+                                className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                            >
+                                <Shuffle className="w-5 h-5" />
+                                Randomize
+                            </button>
+                            <div className="relative flex-1 max-w-sm">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-600 w-5 h-5" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Search flashcards..."
+                                    className="w-full pl-10 pr-10 py-2 border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm('')}
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-amber-600"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
+                        {searchTerm && (
+                            <div className="text-sm text-amber-700 mb-4">
+                                Found {filteredCards.length} card{filteredCards.length !== 1 ? 's' : ''}
+                            </div>
+                        )}
+
                         {filteredCards.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-xl text-amber-800 mb-4">No cards match your search</p>
-                                <button
-                                    onClick={() => setSearchTerm('')}
-                                    className="text-amber-600 underline hover:text-amber-800"
-                                >
-                                    Clear search
-                                </button>
+                            <div className="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-amber-200">
+                                <Search className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                                <h3 className="text-xl font-semibold text-amber-900 mb-2">No cards found</h3>
+                                <p className="text-gray-600">Try a different search term</p>
                             </div>
                         ) : (
                             <>
-                                <div className="mb-6 flex justify-between items-center">
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={alphabetizeCards}
-                                            className="bg-white text-amber-800 px-4 py-2 rounded-lg border-2 border-amber-200 hover:bg-amber-50 transition flex items-center gap-2"
-                                            title="Alphabetize"
-                                        >
-                                            <ArrowDownAZ className="w-5 h-5" />
-                                            <span className="text-sm font-medium">A-Z</span>
-                                        </button>
-                                        <button
-                                            onClick={randomizeCards}
-                                            className="bg-white text-amber-800 px-4 py-2 rounded-lg border-2 border-amber-200 hover:bg-amber-50 transition flex items-center gap-2"
-                                            title="Randomize"
-                                        >
-                                            <Shuffle className="w-5 h-5" />
-                                            <span className="text-sm font-medium">Shuffle</span>
-                                        </button>
+                                <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
+                                    <div className="text-sm text-gray-500 mb-4">
+                                        Card {currentIndex + 1} of {filteredCards.length}
                                     </div>
-                                    <div className="flex items-center gap-2">
+
+                                    <div
+                                        onClick={() => setIsFlipped(!isFlipped)}
+                                        className="min-h-64 flex items-center justify-center cursor-pointer bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg p-8 mb-6 hover:from-amber-200 hover:to-orange-200 transition"
+                                    >
+                                        <div className="text-center w-full">
+                                            {!isFlipped ? (
+                                                <div className="text-2xl font-bold text-amber-900">{filteredCards[currentIndex].name}</div>
+                                            ) : (
+                                                <div 
+                                                    className="text-xl text-amber-900"
+                                                    style={{ lineHeight: '1.6' }}
+                                                    dangerouslySetInnerHTML={{ __html: filteredCards[currentIndex].description }} 
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="text-center text-sm text-gray-500 mb-4">
+                                        Click card to flip
+                                    </div>
+
+                                    {isFlipped && (
+                                        <div className="flex gap-4 mb-4">
+                                            <button
+                                                onClick={() => markCard('needs-review')}
+                                                className="flex-1 bg-amber-500 text-white py-4 px-6 rounded-lg hover:bg-amber-600 transition flex items-center justify-center gap-2 font-semibold"
+                                            >
+                                                <XCircle className="w-5 h-5" />
+                                                Needs Review
+                                            </button>
+                                            <button
+                                                onClick={() => markCard('known')}
+                                                className="flex-1 bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition flex items-center justify-center gap-2 font-semibold"
+                                            >
+                                                <CheckCircle className="w-5 h-5" />
+                                                I Know This
+                                            </button>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="flex gap-4">
                                         <button
                                             onClick={() => {
+                                                setIsFlipped(false);
                                                 if (currentIndex > 0) {
                                                     setCurrentIndex(currentIndex - 1);
-                                                    setIsFlipped(false);
+                                                } else {
+                                                    setCurrentIndex(filteredCards.length - 1);
                                                 }
                                             }}
-                                            disabled={currentIndex === 0}
-                                            className="bg-white text-amber-800 p-2 rounded-lg border-2 border-amber-200 hover:bg-amber-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
                                         >
                                             <ChevronLeft className="w-5 h-5" />
+                                            Previous Card
                                         </button>
-                                        <span className="text-amber-800 font-medium px-3">
-                                            {currentIndex + 1} / {filteredCards.length}
-                                        </span>
                                         <button
                                             onClick={() => {
+                                                setIsFlipped(false);
                                                 if (currentIndex < filteredCards.length - 1) {
                                                     setCurrentIndex(currentIndex + 1);
-                                                    setIsFlipped(false);
+                                                } else {
+                                                    setCurrentIndex(0);
                                                 }
                                             }}
-                                            disabled={currentIndex === filteredCards.length - 1}
-                                            className="bg-white text-amber-800 p-2 rounded-lg border-2 border-amber-200 hover:bg-amber-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
                                         >
+                                            Next Card
                                             <ChevronRight className="w-5 h-5" />
                                         </button>
                                     </div>
                                 </div>
 
-                                {currentCard && (
-                                    <>
-                                        <div
-                                            onClick={() => setIsFlipped(!isFlipped)}
-                                            className="bg-white rounded-xl shadow-lg p-12 mb-6 min-h-[300px] flex items-center justify-center cursor-pointer hover:shadow-xl transition border-2 border-amber-200"
-                                        >
-                                            {!isFlipped ? (
-                                                <div className="text-center">
-                                                    <h2 className="text-4xl font-bold text-amber-900">{currentCard.name}</h2>
-                                                    <p className="text-sm text-amber-600 mt-4">Click to reveal definition</p>
-                                                </div>
-                                            ) : (
-                                                <div className="text-lg text-amber-900 leading-relaxed" dangerouslySetInnerHTML={{ __html: currentCard.description }}></div>
-                                            )}
-                                        </div>
-
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={() => markCard('needs-review')}
-                                                className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-4 px-6 rounded-lg hover:from-red-600 hover:to-red-700 transition font-medium flex items-center justify-center gap-2"
-                                            >
-                                                <XCircle className="w-6 h-6" />
-                                                Needs Review
-                                            </button>
-                                            <button
-                                                onClick={() => markCard('known')}
-                                                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-4 px-6 rounded-lg hover:from-green-600 hover:to-green-700 transition font-medium flex items-center justify-center gap-2"
-                                            >
-                                                <CheckCircle className="w-6 h-6" />
-                                                I Know This
-                                            </button>
-                                        </div>
-
-                                        <div className="mt-4 flex justify-center">
-                                            <button
-                                                onClick={() => {
-                                                    setIsFlipped(false);
-                                                    if (currentIndex < filteredCards.length - 1) {
-                                                        setCurrentIndex(currentIndex + 1);
-                                                    } else {
-                                                        setCurrentIndex(0);
-                                                    }
-                                                }}
-                                                className="text-amber-700 hover:text-amber-900 font-medium underline"
-                                            >
-                                                Skip
-                                            </button>
-                                        </div>
-                                    </>
-                                )}
+                                <div className="bg-white rounded-lg shadow p-4 border-2 border-amber-200">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-amber-700">✓ Known: {stats.known}</span>
+                                        <span className="text-orange-700">⚠ Review: {stats.needsReview}</span>
+                                        <span className="text-amber-700">● New: {stats.new}</span>
+                                    </div>
+                                </div>
                             </>
                         )}
                     </div>
