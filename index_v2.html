@@ -436,12 +436,21 @@
             };
 
             const alphabetizeCards = () => {
-                // Deduplicate first, then sort, then shuffle to maintain spaced repetition
+                // Deduplicate first, then sort alphabetically
                 const uniqueCards = deduplicateCards(cards);
                 const sorted = [...uniqueCards].sort((a, b) => a.name.localeCompare(b.name));
-                const shuffled = shuffleCards(sorted);
-                setCards(shuffled);
-                saveProgress(shuffled);
+                
+                // Create weighted duplicates but keep alphabetical order (no shuffle)
+                const weighted = [];
+                sorted.forEach(card => {
+                    const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
+                    for (let i = 0; i < weight; i++) {
+                        weighted.push({ ...card });
+                    }
+                });
+                
+                setCards(weighted);
+                saveProgress(weighted);
                 setCurrentIndex(0);
                 setIsFlipped(false);
             };
