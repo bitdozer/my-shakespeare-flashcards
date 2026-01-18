@@ -132,18 +132,55 @@
             return text;
         }
 
-        // Fetch Shakespeare figures of speech from API
+        // Fetch Shakespeare figures of speech from API with pagination support
         async function fetchShakespeareData() {
             try {
-                const response = await fetch('https://myshakespeare.me/wp-json/wp/v2/figures_of_speech?per_page=100');
-                const data = await response.json();
+                let allData = [];
+                let page = 1;
+                let totalPages = 1;
+                const perPage = 100;
                 
-                console.log(`Fetched ${data.length} items from API`);
+                console.log('Starting API fetch with pagination...');
+                
+                // Fetch all pages
+                while (page <= totalPages) {
+                    const url = `https://myshakespeare.me/wp-json/wp/v2/figures_of_speech?per_page=${perPage}&page=${page}`;
+                    console.log(`Fetching page ${page}/${totalPages}...`);
+                    
+                    const response = await fetch(url);
+                    
+                    // Check for pagination headers (WordPress REST API standard)
+                    const totalPagesHeader = response.headers.get('X-WP-TotalPages');
+                    if (totalPagesHeader && page === 1) {
+                        totalPages = parseInt(totalPagesHeader, 10);
+                        console.log(`Total pages available: ${totalPages}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Fallback: if no header and we get empty results, stop
+                    if (!data || data.length === 0) {
+                        console.log(`Page ${page} returned no results, stopping pagination`);
+                        break;
+                    }
+                    
+                    console.log(`Fetched ${data.length} items from page ${page}`);
+                    allData = allData.concat(data);
+                    page++;
+                    
+                    // Safety limit to prevent infinite loops
+                    if (page > 20) {
+                        console.warn('Reached safety limit of 20 pages, stopping');
+                        break;
+                    }
+                }
+                
+                console.log(`Total items fetched from API: ${allData.length}`);
                 
                 // Convert API response to CSV format
                 const rows = ['Name,Description'];
                 let skipped = 0;
-                data.forEach((item, index) => {
+                allData.forEach((item, index) => {
                     const name = item.name || '';
                     // Keep HTML in description, just trim whitespace
                     let description = (item.description || '').trim();
