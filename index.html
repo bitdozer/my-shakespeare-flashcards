@@ -4,25 +4,133 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spaced Repetition Flashcard App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
+        .text-amber-900 a {
+            text-decoration: underline;
+            color: #78350f;
         }
-        .card-flip {
-            transition: transform 0.3s;
-        }
-        .card-flip:hover {
-            transform: scale(1.02);
+        .text-amber-900 a:hover {
+            color: #92400e;
         }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50">
-    <div id="app"></div>
+<body>
+    <div id="root"></div>
 
-    <script>
-        let DEFAULT_DATA = null;
-        let isLoadingData = true;
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Lucide React icons as inline SVG components
+        const RotateCcw = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                <path d="M3 21v-5h5"/>
+            </svg>
+        );
+
+        const Upload = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" x2="12" y1="3" y2="15"/>
+            </svg>
+        );
+
+        const CheckCircle = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="m9 12 2 2 4-4"/>
+            </svg>
+        );
+
+        const XCircle = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="m15 9-6 6"/>
+                <path d="m9 9 6 6"/>
+            </svg>
+        );
+
+        const BarChart3 = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18"/>
+                <path d="M18 17V9"/>
+                <path d="M13 17V5"/>
+                <path d="M8 17v-3"/>
+            </svg>
+        );
+
+        const FileText = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+                <path d="M16 13H8"/>
+                <path d="M16 17H8"/>
+                <path d="M10 9H8"/>
+            </svg>
+        );
+
+        const Search = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+            </svg>
+        );
+
+        const X = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18"/>
+                <path d="m6 6 12 12"/>
+            </svg>
+        );
+
+        const ArrowDownAZ = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m3 16 4 4 4-4"/>
+                <path d="M7 20V4"/>
+                <path d="M20 8h-5"/>
+                <path d="M15 10V6.5a2.5 2.5 0 0 1 5 0V10"/>
+                <path d="M15 14h5l-5 6h5"/>
+            </svg>
+        );
+
+        const Shuffle = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/>
+                <polyline points="18 2 22 6 18 10"/>
+                <path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/>
+                <polyline points="22 18 18 22 14 18"/>
+                <path d="M22 18h-5.5c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/>
+            </svg>
+        );
+
+        const ChevronLeft = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+            </svg>
+        );
+
+        const ChevronRight = ({ className }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9 18 6-6-6-6"/>
+            </svg>
+        );
+
+        // Helper function to clean WordPress shortcodes from descriptions
+        function cleanWordPressShortcodes(text) {
+            if (!text) return text;
+            
+            // Remove tooltip shortcodes: [tooltip title="..."]content[/tooltip] -> content
+            text = text.replace(/\[tooltip[^\]]*\]([^\[]*?)\[\/tooltip\]/gi, '$1');
+            
+            return text;
+        }
 
         // Fetch Shakespeare figures of speech from API
         async function fetchShakespeareData() {
@@ -34,127 +142,132 @@
                 
                 // Convert API response to CSV format
                 const rows = ['Name,Description'];
-                data.forEach(item => {
+                let skipped = 0;
+                data.forEach((item, index) => {
                     const name = item.name || '';
                     // Keep HTML in description, just trim whitespace
                     let description = (item.description || '').trim();
-                    // Filter out WordPress shortcodes (tooltip, etc.) - see cleanWordPressShortcodes function
+                    
+                    // Skip items with empty name or description
+                    if (!name || !description) {
+                        console.warn(`Skipping item ${index}: name="${name}", description length=${description.length}`);
+                        skipped++;
+                        return;
+                    }
+                    
+                    // Filter out WordPress shortcodes
                     description = cleanWordPressShortcodes(description);
                     // Properly escape for CSV: wrap in quotes and escape internal quotes
                     const escapedDesc = `"${description.replace(/"/g, '""')}"`;
                     rows.push(`${name},${escapedDesc}`);
                 });
                 
-                console.log(`Created CSV with ${rows.length - 1} cards`);
-                DEFAULT_DATA = rows.join('\n');
-                isLoadingData = false;
-                
-                // Trigger app initialization if it was waiting
-                if (window.flashcardAppInstance) {
-                    window.flashcardAppInstance.loadProgress();
-                    window.flashcardAppInstance.render();
-                }
+                console.log(`Created CSV with ${rows.length - 1} cards (skipped ${skipped} items with missing data)`);
+                return rows.join('\n');
             } catch (error) {
                 console.error('Error fetching Shakespeare data:', error);
                 // Fallback to empty data
-                DEFAULT_DATA = 'Name,Description';
-                isLoadingData = false;
-                
-                if (window.flashcardAppInstance) {
-                    window.flashcardAppInstance.loadProgress();
-                    window.flashcardAppInstance.render();
-                }
+                return 'Name,Description';
             }
         }
 
-        // Fetch data on page load
-        fetchShakespeareData();
+        function FlashcardApp() {
+            const [cards, setCards] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [isFlipped, setIsFlipped] = useState(false);
+            const [showStats, setShowStats] = useState(false);
+            const [showImport, setShowImport] = useState(false);
+            const [csvText, setCsvText] = useState('');
+            const [initialized, setInitialized] = useState(false);
+            const [isLoading, setIsLoading] = useState(true);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filteredCards, setFilteredCards] = useState([]);
 
-        // Helper function to clean WordPress shortcodes from descriptions
-        // Removes [tooltip title="..."]content[/tooltip] patterns while keeping the content
-        // This filtering is applied to descriptions from both API and CSV uploads
-        function cleanWordPressShortcodes(text) {
-            if (!text) return text;
-            
-            // Remove tooltip shortcodes: [tooltip title="..."]content[/tooltip] -> content
-            text = text.replace(/\[tooltip[^\]]*\]([^\[]*?)\[\/tooltip\]/gi, '$1');
-            
-            // Add additional WordPress shortcode patterns here if needed in the future
-            
-            return text;
-        }
+            useEffect(() => {
+                loadProgress();
+            }, []);
 
-        class FlashcardApp {
-            constructor() {
-                this.cards = [];
-                this.currentIndex = 0;
-                this.isFlipped = false;
-                this.showStats = false;
-                this.showImport = false;
-                this.csvText = '';
-                this.searchTerm = '';
-                this.filteredCards = [];
-                this.init();
-            }
-
-            init() {
-                if (isLoadingData) {
-                    // Show loading state and wait for data
-                    this.render();
+            useEffect(() => {
+                if (searchTerm.trim() === '') {
+                    setFilteredCards(cards);
                 } else {
-                    this.loadProgress();
-                    this.render();
+                    const term = searchTerm.toLowerCase();
+                    const filtered = cards.filter(card => {
+                        const nameText = card.name.toLowerCase();
+                        const descElement = document.createElement('div');
+                        descElement.innerHTML = card.description;
+                        const descText = descElement.textContent.toLowerCase();
+                        return nameText.includes(term) || descText.includes(term);
+                    });
+                    setFilteredCards(filtered);
+                    if (filtered.length > 0 && currentIndex >= filtered.length) {
+                        setCurrentIndex(0);
+                        setIsFlipped(false);
+                    }
                 }
-            }
+            }, [searchTerm, cards, currentIndex]);
 
-            loadProgress() {
-                const saved = localStorage.getItem('flashcard-progress');
-                let savedProgress = saved ? JSON.parse(saved) : null;
-                
-                // Always use fresh data from API
-                this.cards = this.parseCSV(DEFAULT_DATA);
-                console.log(`After parseCSV: ${this.cards.length} cards`);
-                
-                // Restore progress for cards that existed before (match by name)
-                if (savedProgress && savedProgress.length > 0) {
-                    const progressMap = new Map();
-                    savedProgress.forEach(card => {
-                        progressMap.set(card.name, {
-                            status: card.status,
-                            reviewCount: card.reviewCount,
-                            lastReviewed: card.lastReviewed,
-                            weight: card.weight
+            const loadProgress = async () => {
+                try {
+                    const saved = localStorage.getItem('flashcard-progress');
+                    let savedProgress = saved ? JSON.parse(saved) : null;
+                    
+                    // Fetch fresh data from API
+                    const apiData = await fetchShakespeareData();
+                    const freshCards = parseCSV(apiData);
+                    
+                    // Restore progress for cards that existed before (match by name)
+                    if (savedProgress && savedProgress.length > 0) {
+                        const progressMap = new Map();
+                        savedProgress.forEach(card => {
+                            progressMap.set(card.name, {
+                                status: card.status,
+                                weight: card.weight,
+                                lastReviewed: card.lastReviewed
+                            });
                         });
-                    });
-                    
-                    this.cards = this.cards.map(card => {
-                        const progress = progressMap.get(card.name);
-                        if (progress) {
-                            return { ...card, ...progress };
-                        }
-                        return card;
-                    });
-                    
-                    console.log(`Restored progress for ${progressMap.size} existing cards`);
+                        
+                        const restoredCards = freshCards.map(card => {
+                            if (progressMap.has(card.name)) {
+                                const progress = progressMap.get(card.name);
+                                return { ...card, ...progress };
+                            }
+                            return card;
+                        });
+                        
+                        setCards(restoredCards);
+                        saveProgress(restoredCards);
+                    } else {
+                        setCards(freshCards);
+                        saveProgress(freshCards);
+                    }
+                } catch (error) {
+                    console.error('Error loading progress:', error);
+                    setCards([]);
                 }
-                
-                this.saveProgress();
-                this.updateFilteredCards();
-                console.log(`After updateFilteredCards: ${this.filteredCards.length} filtered cards`);
-            }
+                setIsLoading(false);
+                setInitialized(true);
+            };
 
-            saveProgress() {
-                localStorage.setItem('flashcard-progress', JSON.stringify(this.cards));
-            }
+            const saveProgress = (updatedCards) => {
+                try {
+                    localStorage.setItem('flashcard-progress', JSON.stringify(updatedCards));
+                } catch (error) {
+                    console.error('Error saving progress:', error);
+                }
+            };
 
-            parseCSV(text) {
+            const parseCSV = (text) => {
                 const lines = text.trim().split('\n');
                 const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
                 
                 const nameIndex = headers.findIndex(h => h.toLowerCase().includes('name'));
                 const descIndex = headers.findIndex(h => h.toLowerCase().includes('description') || h.toLowerCase().includes('desc'));
                 
+                console.log(`parseCSV: Processing ${lines.length - 1} lines`);
+                
                 const parsedCards = [];
+                let cardCounter = 0; // Counter to ensure unique IDs
                 
                 // Better CSV parsing that handles multi-line quoted fields
                 let i = 1;
@@ -180,15 +293,8 @@
                     
                     for (let j = 0; j < fullLine.length; j++) {
                         const char = fullLine[j];
-                        
                         if (char === '"') {
-                            // Handle escaped quotes ("")
-                            if (insideQuotes && fullLine[j + 1] === '"') {
-                                currentValue += '"';
-                                j++; // Skip next quote
-                            } else {
-                                insideQuotes = !insideQuotes;
-                            }
+                            insideQuotes = !insideQuotes;
                         } else if (char === ',' && !insideQuotes) {
                             values.push(currentValue.trim());
                             currentValue = '';
@@ -206,492 +312,590 @@
                     
                     if (name && description) {
                         parsedCards.push({
-                            id: parsedCards.length,
-                            name: name,
-                            description: description,
+                            id: `${Date.now()}-${cardCounter++}-${Math.random().toString(36).substr(2, 9)}`,
+                            name,
+                            description,
                             status: 'new',
-                            reviewCount: 0,
-                            lastReviewed: null,
-                            weight: 1
+                            weight: 5,
+                            lastReviewed: null
                         });
+                    } else {
+                        console.warn(`parseCSV: Skipping line ${i} - name="${name}", description="${description.substring(0, 50)}..."`);
                     }
                     
                     i++;
                 }
 
-                console.log(`Parsed ${parsedCards.length} cards from CSV`);
-                return this.shuffleCards(parsedCards);
-            }
+                console.log(`parseCSV: Parsed ${parsedCards.length} cards from CSV`);
+                return shuffleCards(parsedCards);
+            };
 
-            shuffleCards(cardList) {
-                console.log(`shuffleCards input: ${cardList.length} cards`);
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const text = event.target.result;
+                        const parsed = parseCSV(text);
+                        setCards(parsed);
+                        saveProgress(parsed);
+                        setShowImport(false);
+                        setCurrentIndex(0);
+                        setIsFlipped(false);
+                        setSearchTerm('');
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const handlePasteCSV = () => {
+                const parsed = parseCSV(csvText);
+                setCards(parsed);
+                saveProgress(parsed);
+                setShowImport(false);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+                setCsvText('');
+                setSearchTerm('');
+            };
+
+            const handleLoadDefault = async () => {
+                setIsLoading(true);
+                try {
+                    const apiData = await fetchShakespeareData();
+                    const parsed = parseCSV(apiData);
+                    setCards(parsed);
+                    saveProgress(parsed);
+                    setShowImport(false);
+                    setCurrentIndex(0);
+                    setIsFlipped(false);
+                    setSearchTerm('');
+                } catch (error) {
+                    console.error('Error loading default data:', error);
+                }
+                setIsLoading(false);
+            };
+
+            // Helper to deduplicate cards by ID
+            const deduplicateCards = (cardList) => {
+                return Array.from(new Map(cardList.map(card => [card.id, card])).values());
+            };
+
+            // Helper to find next unique card index (skips duplicates)
+            const findNextUniqueIndex = (currentIdx, cardList) => {
+                if (cardList.length === 0) return 0;
+                const currentCard = cardList[currentIdx];
+                let nextIdx = currentIdx + 1;
+                
+                // Wrap around to beginning if at end
+                if (nextIdx >= cardList.length) {
+                    nextIdx = 0;
+                }
+                
+                // Skip duplicates of current card
+                while (nextIdx !== currentIdx && cardList[nextIdx].id === currentCard.id) {
+                    nextIdx++;
+                    if (nextIdx >= cardList.length) {
+                        nextIdx = 0;
+                    }
+                }
+                
+                return nextIdx;
+            };
+
+            // Helper to find previous unique card index (skips duplicates)
+            const findPreviousUniqueIndex = (currentIdx, cardList) => {
+                if (cardList.length === 0) return 0;
+                const currentCard = cardList[currentIdx];
+                let prevIdx = currentIdx - 1;
+                
+                // Wrap around to end if at beginning
+                if (prevIdx < 0) {
+                    prevIdx = cardList.length - 1;
+                }
+                
+                // Skip duplicates of current card
+                while (prevIdx !== currentIdx && cardList[prevIdx].id === currentCard.id) {
+                    prevIdx--;
+                    if (prevIdx < 0) {
+                        prevIdx = cardList.length - 1;
+                    }
+                }
+                
+                return prevIdx;
+            };
+
+            const shuffleCards = (cardList) => {
+                // First deduplicate to avoid multiplying already-weighted cards
+                const uniqueCards = deduplicateCards(cardList);
                 const weighted = [];
-                cardList.forEach(card => {
+                uniqueCards.forEach(card => {
                     const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
                     for (let i = 0; i < weight; i++) {
                         weighted.push(card);
                     }
                 });
                 
-                console.log(`After weighting: ${weighted.length} cards`);
-                
                 for (let i = weighted.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [weighted[i], weighted[j]] = [weighted[j], weighted[i]];
                 }
                 
-                const result = weighted.map(card => ({ ...card }));
-                console.log(`shuffleCards output: ${result.length} cards`);
-                return result;
-            }
+                return weighted.map(card => ({ ...card }));
+            };
 
-            updateFilteredCards() {
-                if (this.searchTerm.trim() === '') {
-                    this.filteredCards = this.cards;
-                } else {
-                    const term = this.searchTerm.toLowerCase();
-                    this.filteredCards = this.cards.filter(card => {
-                        const nameText = card.name.toLowerCase();
-                        // Strip HTML tags only for searching, not for display
-                        const descText = card.description.replace(/<[^>]*>/g, '').toLowerCase();
-                        return nameText.includes(term) || descText.includes(term);
-                    });
-                    this.currentIndex = 0;
-                    this.isFlipped = false;
-                }
-            }
+            const markCard = (status) => {
+                if (filteredCards.length === 0) return;
 
-            markCard(status) {
-                if (this.filteredCards.length === 0) return;
-
-                const currentCard = this.filteredCards[this.currentIndex];
-                this.cards = this.cards.map(card => {
+                const currentCard = filteredCards[currentIndex];
+                const updatedCards = cards.map(card => {
                     if (card.id === currentCard.id) {
                         return {
                             ...card,
                             status,
-                            reviewCount: card.reviewCount + 1,
-                            lastReviewed: new Date().toISOString(),
-                            weight: status === 'needs-review' ? Math.min(card.weight + 1, 5) : Math.max(card.weight - 0.5, 1)
+                            weight: status === 'known' ? Math.max(1, card.weight - 1) : 
+                                   status === 'needs-review' ? Math.min(10, card.weight + 1) : card.weight,
+                            lastReviewed: new Date().toISOString()
                         };
                     }
                     return card;
                 });
 
-                this.saveProgress();
+                setCards(updatedCards);
+                saveProgress(updatedCards);
                 
-                this.isFlipped = false;
-                if (this.currentIndex < this.filteredCards.length - 1) {
-                    this.currentIndex++;
+                setIsFlipped(false);
+                
+                // Update filteredCards to reflect the changes
+                const updatedFilteredCards = searchTerm.trim() === '' ? updatedCards : filteredCards.map(fc => {
+                    const updated = updatedCards.find(uc => uc.id === fc.id);
+                    return updated || fc;
+                });
+                
+                // Move to next unique card
+                const nextIdx = findNextUniqueIndex(currentIndex, updatedFilteredCards);
+                
+                // If we're back at the same position and not searching, reshuffle
+                if (nextIdx === currentIndex && searchTerm.trim() === '') {
+                    const reshuffled = shuffleCards(updatedCards);
+                    setCards(reshuffled);
+                    saveProgress(reshuffled);
+                    setCurrentIndex(0);
                 } else {
-                    if (this.searchTerm.trim() === '') {
-                        this.cards = this.shuffleCards(this.cards);
+                    setCurrentIndex(nextIdx);
+                }
+            };
+
+            const resetProgress = async () => {
+                setIsLoading(true);
+                try {
+                    const apiData = await fetchShakespeareData();
+                    const parsed = parseCSV(apiData);
+                    setCards(parsed);
+                    saveProgress(parsed);
+                    setCurrentIndex(0);
+                    setIsFlipped(false);
+                    setShowStats(false);
+                    setSearchTerm('');
+                } catch (error) {
+                    console.error('Error resetting progress:', error);
+                }
+                setIsLoading(false);
+            };
+
+            const alphabetizeCards = () => {
+                // Deduplicate first, then sort alphabetically
+                const uniqueCards = deduplicateCards(cards);
+                const sorted = [...uniqueCards].sort((a, b) => a.name.localeCompare(b.name));
+                
+                // Create weighted duplicates but keep alphabetical order (no shuffle)
+                const weighted = [];
+                sorted.forEach(card => {
+                    const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
+                    for (let i = 0; i < weight; i++) {
+                        weighted.push({ ...card });
                     }
-                    this.currentIndex = 0;
-                }
-                this.updateFilteredCards();
-                this.render();
-            }
-
-            getStats() {
-                return this.cards.reduce((acc, card) => {
-                    acc.total++;
-                    if (card.status === 'known') acc.known++;
-                    if (card.status === 'needs-review') acc.needsReview++;
-                    if (card.status === 'new') acc.new++;
-                    return acc;
-                }, { total: 0, known: 0, needsReview: 0, new: 0 });
-            }
-
-            render() {
-                const app = document.getElementById('app');
+                });
                 
-                if (this.showImport) {
-                    app.innerHTML = this.renderImport();
-                } else if (this.showStats) {
-                    app.innerHTML = this.renderStats();
-                } else {
-                    app.innerHTML = this.renderFlashcards();
-                }
-                
-                this.attachEventListeners();
-            }
+                setCards(weighted);
+                saveProgress(weighted);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+            };
 
-            renderImport() {
-                return `
-                    <div class="p-8">
-                        <div class="max-w-2xl mx-auto">
-                            <h1 class="text-4xl font-bold text-gray-800 mb-8 text-center">📚 Import Flashcards</h1>
-                            
-                            <div class="bg-white rounded-xl shadow-lg p-8 mb-4">
-                                <h2 class="text-2xl font-semibold mb-6 text-gray-700">Choose Import Method</h2>
-                                
-                                <button id="loadDefault" class="w-full bg-purple-600 text-white py-4 px-6 rounded-lg hover:bg-purple-700 transition mb-4">
-                                    Use Default Vocabulary List
-                                </button>
+            const randomizeCards = () => {
+                // Deduplicate first to prevent multiplication
+                const uniqueCards = deduplicateCards(cards);
+                const reshuffled = shuffleCards(uniqueCards);
+                setCards(reshuffled);
+                saveProgress(reshuffled);
+                setCurrentIndex(0);
+                setIsFlipped(false);
+            };
 
-                                <div class="text-center text-gray-500 mb-6">OR</div>
+            // Use deduplicated cards for stats and display counts
+            const uniqueCards = deduplicateCards(cards);
+            const uniqueFilteredCards = deduplicateCards(filteredCards);
+            const stats = uniqueCards.reduce((acc, card) => {
+                acc.total++;
+                if (card.status === 'known') acc.known++;
+                if (card.status === 'needs-review') acc.needsReview++;
+                if (card.status === 'new') acc.new++;
+                return acc;
+            }, { total: 0, known: 0, needsReview: 0, new: 0 });
 
-                                <div class="mb-6">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Upload Your Own CSV File
-                                    </label>
-                                    <input type="file" id="csvFile" accept=".csv" class="w-full px-4 py-2 border border-amber-300 rounded-lg">
-                                </div>
-
-                                <div class="text-center text-gray-500 mb-6">OR</div>
-
-                                <div class="mb-6">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        Paste CSV Data
-                                    </label>
-                                    <textarea id="csvText" placeholder="Name,Description
-React,A JavaScript library for building user interfaces
-Python,A high-level programming language" 
-                                        class="w-full h-40 px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"></textarea>
-                                    <button id="pasteCSV" class="mt-4 w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition">
-                                        Import Custom Flashcards
-                                    </button>
-                                </div>
-
-                                <div class="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
-                                    <p class="font-medium mb-2">Expected CSV format:</p>
-                                    <p>First row: Column headers (must include "Name" and "Description")</p>
-                                    <p>Following rows: Your flashcard data</p>
-                                </div>
-                            </div>
-
-                            <button id="cancelImport" class="w-full bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 transition">
-                                Cancel
-                            </button>
+            if (!initialized || isLoading) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center p-8">
+                        <div className="text-center">
+                            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mb-4"></div>
+                            <p className="text-xl text-amber-800">Loading flashcards...</p>
                         </div>
                     </div>
-                `;
+                );
             }
 
-            renderStats() {
-                const stats = this.getStats();
-                const progress = Math.round((stats.known / stats.total) * 100);
+            if (showImport) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+                        <div className="max-w-2xl mx-auto">
+                            <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-amber-200">
+                                <h2 className="text-3xl font-bold text-amber-900 mb-6 flex items-center">
+                                    <Upload className="w-8 h-8 mr-3" />
+                                    Import Flashcards
+                                </h2>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <h3 className="text-xl font-semibold text-amber-800 mb-3">Load Default Dataset</h3>
+                                        <p className="text-gray-600 mb-4">Load Shakespeare's Figures of Speech from MyShakespeare.me</p>
+                                        <button
+                                            onClick={handleLoadDefault}
+                                            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 px-6 rounded-lg hover:from-amber-600 hover:to-orange-600 transition font-medium"
+                                        >
+                                            Load Shakespeare Vocabulary
+                                        </button>
+                                    </div>
+
+                                    <div className="border-t-2 border-amber-100 pt-6">
+                                        <h3 className="text-xl font-semibold text-amber-800 mb-3">Upload CSV File</h3>
+                                        <input
+                                            type="file"
+                                            accept=".csv"
+                                            onChange={handleFileUpload}
+                                            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                                        />
+                                    </div>
+
+                                    <div className="border-t-2 border-amber-100 pt-6">
+                                        <h3 className="text-xl font-semibold text-amber-800 mb-3">Paste CSV Data</h3>
+                                        <textarea
+                                            value={csvText}
+                                            onChange={(e) => setCsvText(e.target.value)}
+                                            placeholder="Name,Description&#10;React,A JavaScript library for building user interfaces&#10;Python,A high-level programming language"
+                                            className="w-full h-40 px-4 py-2 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        ></textarea>
+                                        <button
+                                            onClick={handlePasteCSV}
+                                            className="mt-4 w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition"
+                                        >
+                                            Import Custom Flashcards
+                                        </button>
+                                    </div>
+
+                                    <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg">
+                                        <p className="font-medium mb-2">Expected CSV format:</p>
+                                        <p>First row: Column headers (must include "Name" and "Description")</p>
+                                        <p>Following rows: Your flashcard data</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => setShowImport(false)}
+                                    className="mt-6 w-full bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 transition"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (showStats) {
+                const progress = stats.total > 0 ? Math.round((stats.known / stats.total) * 100) : 0;
                 
-                return `
-                    <div class="p-8">
-                        <div class="max-w-2xl mx-auto">
-                            <div class="bg-white rounded-xl shadow-lg p-8 border-2 border-amber-200">
-                                <h2 class="text-3xl font-bold mb-6 text-amber-900">📊 Progress Statistics</h2>
-                                
-                                <div class="grid grid-cols-2 gap-4 mb-8">
-                                    <div class="bg-green-50 p-6 rounded-lg border-2 border-green-300">
-                                        <div class="text-4xl font-bold text-green-700">${stats.known}</div>
-                                        <div class="text-sm text-gray-600">Known Cards</div>
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+                        <div className="max-w-2xl mx-auto">
+                            <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-amber-200">
+                                <h2 className="text-3xl font-bold text-amber-900 mb-6 flex items-center">
+                                    <BarChart3 className="w-8 h-8 mr-3" />
+                                    Your Progress
+                                </h2>
+
+                                <div className="mb-8">
+                                    <div className="flex justify-between text-sm text-amber-800 mb-2">
+                                        <span>Overall Progress</span>
+                                        <span className="font-bold">{progress}%</span>
                                     </div>
-                                    <div class="bg-red-50 p-6 rounded-lg border-2 border-red-300">
-                                        <div class="text-4xl font-bold text-red-700">${stats.needsReview}</div>
-                                        <div class="text-sm text-gray-600">Needs Review</div>
-                                    </div>
-                                    <div class="bg-amber-50 p-6 rounded-lg border-2 border-amber-300">
-                                        <div class="text-4xl font-bold text-amber-700">${stats.new}</div>
-                                        <div class="text-sm text-gray-600">New Cards</div>
-                                    </div>
-                                    <div class="bg-orange-50 p-6 rounded-lg border-2 border-orange-300">
-                                        <div class="text-4xl font-bold text-orange-700">${stats.total}</div>
-                                        <div class="text-sm text-gray-600">Total Cards</div>
+                                    <div className="w-full bg-amber-100 rounded-full h-4">
+                                        <div
+                                            className="bg-gradient-to-r from-amber-500 to-orange-500 h-4 rounded-full transition-all duration-500"
+                                            style={{ width: `${progress}%` }}
+                                        ></div>
                                     </div>
                                 </div>
 
-                                <div class="mb-6">
-                                    <div class="flex justify-between text-sm text-gray-600 mb-2">
-                                        <span>Progress</span>
-                                        <span>${progress}%</span>
+                                <div className="grid grid-cols-2 gap-4 mb-8">
+                                    <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-2 border-green-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-green-800 font-semibold">Known</span>
+                                            <CheckCircle className="w-6 h-6 text-green-600" />
+                                        </div>
+                                        <div className="text-3xl font-bold text-green-900">{stats.known}</div>
                                     </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-4">
-                                        <div class="bg-amber-600 h-4 rounded-full transition-all" style="width: ${progress}%"></div>
+
+                                    <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border-2 border-red-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-red-800 font-semibold">Needs Review</span>
+                                            <XCircle className="w-6 h-6 text-red-600" />
+                                        </div>
+                                        <div className="text-3xl font-bold text-red-900">{stats.needsReview}</div>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-2 border-blue-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-blue-800 font-semibold">New</span>
+                                            <FileText className="w-6 h-6 text-blue-600" />
+                                        </div>
+                                        <div className="text-3xl font-bold text-blue-900">{stats.new}</div>
+                                    </div>
+
+                                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-6 rounded-lg border-2 border-amber-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-amber-800 font-semibold">Total</span>
+                                            <BarChart3 className="w-6 h-6 text-amber-600" />
+                                        </div>
+                                        <div className="text-3xl font-bold text-amber-900">{stats.total}</div>
                                     </div>
                                 </div>
 
-                                <div class="flex flex-col gap-4">
-                                    <button id="continueStudy" class="bg-amber-700 text-white py-3 px-6 rounded-lg hover:bg-amber-800 transition">
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={() => setShowStats(false)}
+                                        className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 px-6 rounded-lg hover:from-amber-600 hover:to-orange-600 transition font-medium"
+                                    >
                                         Continue Studying
                                     </button>
-                                    <button id="showImportBtn" class="bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition">
-                                        Import Different Flashcards
+                                    <button
+                                        onClick={() => { setShowImport(true); setShowStats(false); }}
+                                        className="w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition"
+                                    >
+                                        Import New Cards
                                     </button>
-                                    <button id="resetProgress" class="bg-red-600 text-white py-3 px-6 rounded-lg hover:bg-red-700 transition">
-                                        Reset Progress
+                                    <button
+                                        onClick={resetProgress}
+                                        className="w-full bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 transition flex items-center justify-center"
+                                    >
+                                        <RotateCcw className="w-5 h-5 mr-2" />
+                                        Reset All Progress
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                `;
+                );
             }
 
-            renderFlashcards() {
-                const stats = this.getStats();
-                
-                if (isLoadingData) {
-                    return `
-                        <div class="p-8 flex items-center justify-center h-screen">
-                            <div class="text-center">
-                                <div class="text-xl text-amber-800 mb-4">Loading Shakespeare flashcards...</div>
-                                <div class="animate-pulse text-4xl">📚</div>
+            if (cards.length === 0) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center p-8">
+                        <button onClick={() => setShowImport(true)} className="text-xl text-amber-800 underline">
+                            Load flashcards to begin
+                        </button>
+                    </div>
+                );
+            }
+
+            const currentCard = filteredCards.length > 0 ? filteredCards[currentIndex] : null;
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-8">
+                    <div className="max-w-2xl mx-auto">
+                        <div className="mb-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-amber-900" style={{ fontFamily: 'Papyrus, fantasy' }}>📚 Figures of Speech Flashcards</h1>
+                                    <a 
+                                        href="https://myshakespeare.me" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-amber-700 underline hover:text-amber-900"
+                                    >
+                                        myShakespeare.me
+                                    </a>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowStats(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                    >
+                                        <BarChart3 className="w-5 h-5" />
+                                        Stats
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowImport(true);
+                                            setSearchTerm('');
+                                        }}
+                                        className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                    >
+                                        <Upload className="w-5 h-5" />
+                                        Import
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    `;
-                }
-                
-                if (this.cards.length === 0) {
-                    return '<div class="p-8 flex items-center justify-center"><div class="text-xl text-amber-800">No flashcards loaded</div></div>';
-                }
 
-                return `
-                    <div class="p-8">
-                        <div class="max-w-2xl mx-auto">
-                            <div class="flex justify-between items-center mb-6">
-                                <h1 class="text-3xl font-bold text-amber-900">📚 Flashcards</h1>
-                                <div class="flex gap-2">
-                                    <button id="importBtn" class="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition">Import</button>
-                                    <button id="statsBtn" class="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition">Stats</button>
-                                </div>
+                        <div className="mb-4 flex gap-2 items-center">
+                            <button
+                                onClick={alphabetizeCards}
+                                className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                            >
+                                <ArrowDownAZ className="w-5 h-5" />
+                                Alphabetize
+                            </button>
+                            <button
+                                onClick={randomizeCards}
+                                className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                            >
+                                <Shuffle className="w-5 h-5" />
+                                Randomize
+                            </button>
+                            <div className="relative flex-1 max-w-sm">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-amber-600 w-5 h-5" />
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Search flashcards..."
+                                    className="w-full pl-10 pr-10 py-2 border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm('')}
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-amber-600"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                )}
                             </div>
+                        </div>
 
-                            <div class="mb-6 relative">
-                                <input type="text" id="searchInput" value="${this.searchTerm}" placeholder="Search flashcards..." 
-                                    class="w-full pl-10 pr-10 py-3 border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
-                                ${this.searchTerm ? `<div class="text-sm text-amber-700 mt-2">Found ${this.filteredCards.length} card${this.filteredCards.length !== 1 ? 's' : ''}</div>` : ''}
+                        {searchTerm && (
+                            <div className="text-sm text-amber-700 mb-4">
+                                Found {uniqueFilteredCards.length} card{uniqueFilteredCards.length !== 1 ? 's' : ''}
                             </div>
+                        )}
 
-                            ${this.filteredCards.length === 0 ? `
-                                <div class="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-amber-200">
-                                    <h3 class="text-xl font-semibold text-amber-900 mb-2">No cards found</h3>
-                                    <p class="text-gray-600">Try a different search term</p>
-                                </div>
-                            ` : `
-                                <div class="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
-                                    <div class="text-sm text-gray-500 mb-4">
-                                        Card ${this.currentIndex + 1} of ${this.filteredCards.length}
+                        {filteredCards.length === 0 ? (
+                            <div className="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-amber-200">
+                                <Search className="w-16 h-16 text-amber-300 mx-auto mb-4" />
+                                <h3 className="text-xl font-semibold text-amber-900 mb-2">No cards found</h3>
+                                <p className="text-gray-600">Try a different search term</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
+                                    <div className="text-sm text-gray-500 mb-4">
+                                        Card {currentIndex + 1} of {uniqueFilteredCards.length}
                                     </div>
 
-                                    <div id="flashcard" class="card-flip min-h-64 flex items-center justify-center cursor-pointer bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg p-8 mb-6 hover:from-amber-200 hover:to-orange-200 transition">
-                                        <div class="text-center w-full">
-                                            <div id="flashcardContent" class="${!this.isFlipped ? 'text-2xl font-bold text-amber-900' : 'text-xl text-amber-900'}" style="line-height: 1.6;"></div>
+                                    <div
+                                        onClick={() => setIsFlipped(!isFlipped)}
+                                        className="min-h-64 flex items-center justify-center cursor-pointer bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg p-8 mb-6 hover:from-amber-200 hover:to-orange-200 transition"
+                                    >
+                                        <div className="text-center w-full">
+                                            {!isFlipped ? (
+                                                <div className="text-2xl font-bold text-amber-900">{filteredCards[currentIndex].name}</div>
+                                            ) : (
+                                                <div 
+                                                    className="text-xl text-amber-900"
+                                                    style={{ lineHeight: '1.6' }}
+                                                    dangerouslySetInnerHTML={{ __html: filteredCards[currentIndex].description }} 
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
-                                    <div class="text-center text-sm text-gray-500 mb-4">
+                                    <div className="text-center text-sm text-gray-500 mb-4">
                                         Click card to flip
                                     </div>
 
-                                    ${this.isFlipped ? `
-                                        <div class="flex gap-4 mb-4">
-                                            <button id="needsReview" class="flex-1 bg-amber-500 text-white py-4 px-6 rounded-lg hover:bg-amber-600 transition font-semibold">
-                                                ✗ Needs Review
+                                    {isFlipped && (
+                                        <div className="flex gap-4 mb-4">
+                                            <button
+                                                onClick={() => markCard('needs-review')}
+                                                className="flex-1 bg-amber-500 text-white py-4 px-6 rounded-lg hover:bg-amber-600 transition flex items-center justify-center gap-2 font-semibold"
+                                            >
+                                                <XCircle className="w-5 h-5" />
+                                                Needs Review
                                             </button>
-                                            <button id="known" class="flex-1 bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition font-semibold">
-                                                ✓ I Know This
+                                            <button
+                                                onClick={() => markCard('known')}
+                                                className="flex-1 bg-amber-600 text-white py-4 px-6 rounded-lg hover:bg-amber-700 transition flex items-center justify-center gap-2 font-semibold"
+                                            >
+                                                <CheckCircle className="w-5 h-5" />
+                                                I Know This
                                             </button>
                                         </div>
-                                    ` : ''}
+                                    )}
                                     
-                                    <button id="skip" class="w-full bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition">
-                                        Skip / Next Card →
-                                    </button>
-                                </div>
-
-                                <div class="bg-white rounded-lg shadow p-4 border-2 border-amber-200">
-                                    <div class="flex justify-between text-sm">
-                                        <span class="text-green-700">✓ Known: ${stats.known}</span>
-                                        <span class="text-red-700">⚠ Review: ${stats.needsReview}</span>
-                                        <span class="text-amber-700">● New: ${stats.new}</span>
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => {
+                                                setIsFlipped(false);
+                                                const prevIdx = findPreviousUniqueIndex(currentIndex, filteredCards);
+                                                setCurrentIndex(prevIdx);
+                                            }}
+                                            className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
+                                        >
+                                            <ChevronLeft className="w-5 h-5" />
+                                            Previous Card
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsFlipped(false);
+                                                const nextIdx = findNextUniqueIndex(currentIndex, filteredCards);
+                                                setCurrentIndex(nextIdx);
+                                            }}
+                                            className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
+                                        >
+                                            Next Card
+                                            <ChevronRight className="w-5 h-5" />
+                                        </button>
                                     </div>
                                 </div>
-                            `}
-                        </div>
+
+                                <div className="bg-white rounded-lg shadow p-4 border-2 border-amber-200">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-amber-700">✓ Known: {stats.known}</span>
+                                        <span className="text-orange-700">⚠ Review: {stats.needsReview}</span>
+                                        <span className="text-amber-700">● New: {stats.new}</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
-                `;
-            }
-
-            attachEventListeners() {
-                // Import screen
-                const loadDefault = document.getElementById('loadDefault');
-                const csvFile = document.getElementById('csvFile');
-                const pasteCSV = document.getElementById('pasteCSV');
-                const cancelImport = document.getElementById('cancelImport');
-                
-                if (loadDefault) {
-                    loadDefault.onclick = () => {
-                        this.cards = this.parseCSV(DEFAULT_DATA);
-                        this.saveProgress();
-                        this.showImport = false;
-                        this.currentIndex = 0;
-                        this.isFlipped = false;
-                        this.searchTerm = '';
-                        this.updateFilteredCards();
-                        this.render();
-                    };
-                }
-                
-                if (csvFile) {
-                    csvFile.onchange = (e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                                this.cards = this.parseCSV(event.target.result);
-                                this.saveProgress();
-                                this.showImport = false;
-                                this.currentIndex = 0;
-                                this.isFlipped = false;
-                                this.searchTerm = '';
-                                this.updateFilteredCards();
-                                this.render();
-                            };
-                            reader.readAsText(file);
-                        }
-                    };
-                }
-                
-                if (pasteCSV) {
-                    pasteCSV.onclick = () => {
-                        const csvText = document.getElementById('csvText').value;
-                        if (csvText) {
-                            this.cards = this.parseCSV(csvText);
-                            this.saveProgress();
-                            this.showImport = false;
-                            this.currentIndex = 0;
-                            this.isFlipped = false;
-                            this.searchTerm = '';
-                            this.updateFilteredCards();
-                            this.render();
-                        }
-                    };
-                }
-                
-                if (cancelImport) {
-                    cancelImport.onclick = () => {
-                        this.showImport = false;
-                        this.searchTerm = '';
-                        this.render();
-                    };
-                }
-
-                // Stats screen
-                const continueStudy = document.getElementById('continueStudy');
-                const showImportBtn = document.getElementById('showImportBtn');
-                const resetProgress = document.getElementById('resetProgress');
-                
-                if (continueStudy) {
-                    continueStudy.onclick = () => {
-                        this.showStats = false;
-                        this.searchTerm = '';
-                        this.render();
-                    };
-                }
-                
-                if (showImportBtn) {
-                    showImportBtn.onclick = () => {
-                        this.showImport = true;
-                        this.showStats = false;
-                        this.render();
-                    };
-                }
-                
-                if (resetProgress) {
-                    resetProgress.onclick = () => {
-                        this.cards = this.parseCSV(DEFAULT_DATA);
-                        this.saveProgress();
-                        this.currentIndex = 0;
-                        this.isFlipped = false;
-                        this.showStats = false;
-                        this.searchTerm = '';
-                        this.updateFilteredCards();
-                        this.render();
-                    };
-                }
-
-                // Main flashcard screen
-                const importBtn = document.getElementById('importBtn');
-                const statsBtn = document.getElementById('statsBtn');
-                const searchInput = document.getElementById('searchInput');
-                const flashcard = document.getElementById('flashcard');
-                const needsReview = document.getElementById('needsReview');
-                const known = document.getElementById('known');
-                const skip = document.getElementById('skip');
-                
-                if (importBtn) {
-                    importBtn.onclick = () => {
-                        this.showImport = true;
-                        this.searchTerm = '';
-                        this.render();
-                    };
-                }
-                
-                if (statsBtn) {
-                    statsBtn.onclick = () => {
-                        this.showStats = true;
-                        this.searchTerm = '';
-                        this.render();
-                    };
-                }
-                
-                if (searchInput) {
-                    searchInput.oninput = (e) => {
-                        const cursorPosition = e.target.selectionStart;
-                        this.searchTerm = e.target.value;
-                        this.updateFilteredCards();
-                        this.render();
-                        
-                        // Restore focus and cursor position after render
-                        setTimeout(() => {
-                            const newSearchInput = document.getElementById('searchInput');
-                            if (newSearchInput) {
-                                newSearchInput.focus();
-                                newSearchInput.setSelectionRange(cursorPosition, cursorPosition);
-                            }
-                        }, 0);
-                    };
-                }
-                
-                if (flashcard) {
-                    flashcard.onclick = () => {
-                        this.isFlipped = !this.isFlipped;
-                        this.render();
-                    };
-                }
-                
-                // Populate flashcard content with innerHTML to render HTML
-                const flashcardContent = document.getElementById('flashcardContent');
-                if (flashcardContent && this.filteredCards.length > 0) {
-                    if (!this.isFlipped) {
-                        flashcardContent.textContent = this.filteredCards[this.currentIndex].name;
-                    } else {
-                        flashcardContent.innerHTML = this.filteredCards[this.currentIndex].description;
-                    }
-                }
-                
-                if (needsReview) {
-                    needsReview.onclick = () => this.markCard('needs-review');
-                }
-                
-                if (known) {
-                    known.onclick = () => this.markCard('known');
-                }
-                
-                if (skip) {
-                    skip.onclick = () => {
-                        this.isFlipped = false;
-                        if (this.currentIndex < this.filteredCards.length - 1) {
-                            this.currentIndex++;
-                        } else {
-                            this.currentIndex = 0;
-                        }
-                        this.render();
-                    };
-                }
-            }
+                </div>
+            );
         }
 
-        // Initialize the app and store instance globally
-        window.flashcardAppInstance = new FlashcardApp();
+        ReactDOM.render(<FlashcardApp />, document.getElementById('root'));
     </script>
 </body>
 </html>
