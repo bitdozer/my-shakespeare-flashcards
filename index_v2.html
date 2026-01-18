@@ -444,7 +444,9 @@
                 setIsFlipped(false);
             };
 
-            const stats = cards.reduce((acc, card) => {
+            // Deduplicate cards by ID for accurate stats counting
+            const uniqueCards = Array.from(new Map(cards.map(card => [card.id, card])).values());
+            const stats = uniqueCards.reduce((acc, card) => {
                 acc.total++;
                 if (card.status === 'known') acc.known++;
                 if (card.status === 'needs-review') acc.needsReview++;
