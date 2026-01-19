@@ -220,6 +220,7 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [filteredCards, setFilteredCards] = useState([]);
             const [displayMode, setDisplayMode] = useState('randomize'); // 'alphabetize' or 'randomize'
+            const [preSearchState, setPreSearchState] = useState(null); // Store state before search
 
             useEffect(() => {
                 loadProgress();
@@ -227,10 +228,27 @@
 
             useEffect(() => {
                 if (searchTerm.trim() === '') {
-                    setFilteredCards(cards);
+                    // Restore pre-search state if we had one
+                    if (preSearchState) {
+                        setFilteredCards(preSearchState.cards);
+                        setCurrentIndex(preSearchState.index);
+                        setPreSearchState(null);
+                    } else {
+                        setFilteredCards(cards);
+                    }
                 } else {
+                    // Store pre-search state on first search
+                    if (!preSearchState) {
+                        setPreSearchState({
+                            cards: filteredCards.length > 0 ? filteredCards : cards,
+                            index: currentIndex
+                        });
+                    }
+                    
                     const term = searchTerm.toLowerCase();
-                    const filtered = cards.filter(card => {
+                    // Always deduplicate search results
+                    const uniqueCards = deduplicateCards(cards);
+                    const filtered = uniqueCards.filter(card => {
                         const nameText = card.name.toLowerCase();
                         const descElement = document.createElement('div');
                         descElement.innerHTML = card.description;
@@ -243,7 +261,7 @@
                         setIsFlipped(false);
                     }
                 }
-            }, [searchTerm, cards, currentIndex]);
+            }, [searchTerm, cards]);
 
             const loadProgress = async () => {
                 try {
@@ -532,6 +550,17 @@
                     return updated || fc;
                 });
                 
+                // When searching, just move sequentially through deduplicated results
+                if (searchTerm.trim() !== '') {
+                    const nextIdx = currentIndex + 1;
+                    if (nextIdx >= updatedFilteredCards.length) {
+                        setCurrentIndex(0); // Wrap to beginning, no reshuffle
+                    } else {
+                        setCurrentIndex(nextIdx);
+                    }
+                    return;
+                }
+                
                 // Move to next unique card (only in alphabetize mode) or next card (in randomize mode)
                 let nextIdx;
                 if (displayMode === 'alphabetize') {
@@ -542,13 +571,13 @@
                 }
                 
                 // If at end of deck in randomize mode and not searching, reshuffle
-                if (nextIdx >= updatedFilteredCards.length && displayMode === 'randomize' && searchTerm.trim() === '') {
+                if (nextIdx >= updatedFilteredCards.length && displayMode === 'randomize') {
                     const uniqueCards = deduplicateCards(updatedCards);
                     const reshuffled = shuffleCards(uniqueCards);
                     setCards(reshuffled);
                     saveProgress(reshuffled);
                     setCurrentIndex(0);
-                } else if (nextIdx === currentIndex && searchTerm.trim() === '') {
+                } else if (nextIdx === currentIndex) {
                     // Fallback: if we're back at the same position, reshuffle
                     const uniqueCards = deduplicateCards(updatedCards);
                     const reshuffled = shuffleCards(uniqueCards);
@@ -761,6 +790,7 @@
                                     <button
                                         onClick={() => { setShowImport(true); setShowStats(false); }}
                                         className="w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition"
+                                        style={{ display: 'none' }}
                                     >
                                         Import New Cards
                                     </button>
@@ -883,7 +913,9 @@
                             <>
                                 <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
                                     <div className="text-sm text-gray-500 mb-4">
-                                        {displayMode === 'alphabetize' ? (
+                                        {searchTerm.trim() !== '' ? (
+                                            <span>Card {currentIndex + 1} of {filteredCards.length}</span>
+                                        ) : displayMode === 'alphabetize' ? (
                                             <span>Card {uniqueFilteredCards.findIndex(uc => uc.id === (filteredCards[currentIndex]?.id)) + 1} of {uniqueFilteredCards.length}</span>
                                         ) : (
                                             <span style={{ display: 'none' }} className="italic text-amber-700">Studying with spaced repetition for optimal learning</span>
@@ -934,7 +966,11 @@
                                         <button
                                             onClick={() => {
                                                 setIsFlipped(false);
-                                                if (displayMode === 'alphabetize') {
+                                                if (searchTerm.trim() !== '') {
+                                                    // In search mode, simple wrap navigation
+                                                    const prevIdx = currentIndex > 0 ? currentIndex - 1 : filteredCards.length - 1;
+                                                    setCurrentIndex(prevIdx);
+                                                } else if (displayMode === 'alphabetize') {
                                                     const prevIdx = findPreviousUniqueIndex(currentIndex, filteredCards);
                                                     setCurrentIndex(prevIdx);
                                                 } else {
@@ -951,7 +987,15 @@
                                         <button
                                             onClick={() => {
                                                 setIsFlipped(false);
-                                                if (displayMode === 'alphabetize') {
+                                                if (searchTerm.trim() !== '') {
+                                                    // In search mode, simple wrap navigation (no reshuffle)
+                                                    const nextIdx = currentIndex + 1;
+                                                    if (nextIdx >= filteredCards.length) {
+                                                        setCurrentIndex(0);
+                                                    } else {
+                                                        setCurrentIndex(nextIdx);
+                                                    }
+                                                } else if (displayMode === 'alphabetize') {
                                                     const nextIdx = findNextUniqueIndex(currentIndex, filteredCards);
                                                     setCurrentIndex(nextIdx);
                                                 } else {
