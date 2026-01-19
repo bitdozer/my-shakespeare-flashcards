@@ -219,6 +219,7 @@
             const [isLoading, setIsLoading] = useState(true);
             const [searchTerm, setSearchTerm] = useState('');
             const [filteredCards, setFilteredCards] = useState([]);
+            const [displayMode, setDisplayMode] = useState('randomize'); // 'alphabetize' or 'randomize'
 
             useEffect(() => {
                 loadProgress();
@@ -472,6 +473,16 @@
                 return prevIdx;
             };
 
+            const removeConsecutiveDuplicates = (cardList) => {
+                const result = [];
+                for (let i = 0; i < cardList.length; i++) {
+                    if (i === 0 || cardList[i].id !== cardList[i - 1].id) {
+                        result.push(cardList[i]);
+                    }
+                }
+                return result;
+            };
+
             const shuffleCards = (cardList) => {
                 // First deduplicate to avoid multiplying already-weighted cards
                 const uniqueCards = deduplicateCards(cardList);
@@ -488,7 +499,9 @@
                     [weighted[i], weighted[j]] = [weighted[j], weighted[i]];
                 }
                 
-                return weighted.map(card => ({ ...card }));
+                // Remove consecutive duplicates before returning
+                const shuffledWithoutConsecutiveDupes = removeConsecutiveDuplicates(weighted.map(card => ({ ...card })));
+                return shuffledWithoutConsecutiveDupes;
             };
 
             const markCard = (status) => {
@@ -519,14 +532,31 @@
                     return updated || fc;
                 });
                 
-                // Move to next unique card
-                const nextIdx = findNextUniqueIndex(currentIndex, updatedFilteredCards);
+                // Move to next unique card (only in alphabetize mode) or next card (in randomize mode)
+                let nextIdx;
+                if (displayMode === 'alphabetize') {
+                    nextIdx = findNextUniqueIndex(currentIndex, updatedFilteredCards);
+                } else {
+                    // In randomize mode, just move to next index
+                    nextIdx = currentIndex + 1;
+                }
                 
-                // If we're back at the same position and not searching, reshuffle
-                if (nextIdx === currentIndex && searchTerm.trim() === '') {
-                    const reshuffled = shuffleCards(updatedCards);
+                // If at end of deck in randomize mode and not searching, reshuffle
+                if (nextIdx >= updatedFilteredCards.length && displayMode === 'randomize' && searchTerm.trim() === '') {
+                    const uniqueCards = deduplicateCards(updatedCards);
+                    const reshuffled = shuffleCards(uniqueCards);
                     setCards(reshuffled);
                     saveProgress(reshuffled);
+                    setCurrentIndex(0);
+                } else if (nextIdx === currentIndex && searchTerm.trim() === '') {
+                    // Fallback: if we're back at the same position, reshuffle
+                    const uniqueCards = deduplicateCards(updatedCards);
+                    const reshuffled = shuffleCards(uniqueCards);
+                    setCards(reshuffled);
+                    saveProgress(reshuffled);
+                    setCurrentIndex(0);
+                } else if (nextIdx >= updatedFilteredCards.length) {
+                    // Wrap to beginning if at end
                     setCurrentIndex(0);
                 } else {
                     setCurrentIndex(nextIdx);
@@ -551,21 +581,13 @@
             };
 
             const alphabetizeCards = () => {
-                // Deduplicate first, then sort alphabetically
+                // Deduplicate first, then sort alphabetically - NO WEIGHTING in alphabetize mode
                 const uniqueCards = deduplicateCards(cards);
                 const sorted = [...uniqueCards].sort((a, b) => a.name.localeCompare(b.name));
                 
-                // Create weighted duplicates but keep alphabetical order (no shuffle)
-                const weighted = [];
-                sorted.forEach(card => {
-                    const weight = card.status === 'needs-review' ? card.weight * 3 : card.weight;
-                    for (let i = 0; i < weight; i++) {
-                        weighted.push({ ...card });
-                    }
-                });
-                
-                setCards(weighted);
-                saveProgress(weighted);
+                setCards(sorted);
+                saveProgress(sorted);
+                setDisplayMode('alphabetize');
                 setCurrentIndex(0);
                 setIsFlipped(false);
             };
@@ -576,6 +598,7 @@
                 const reshuffled = shuffleCards(uniqueCards);
                 setCards(reshuffled);
                 saveProgress(reshuffled);
+                setDisplayMode('randomize');
                 setCurrentIndex(0);
                 setIsFlipped(false);
             };
@@ -738,6 +761,7 @@
                                     <button
                                         onClick={() => { setShowImport(true); setShowStats(false); }}
                                         className="w-full bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 transition"
+                                        style={{ display: 'none' }}
                                     >
                                         Import New Cards
                                     </button>
@@ -800,6 +824,7 @@
                                             setSearchTerm('');
                                         }}
                                         className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
+                                        style={{ display: 'none' }}
                                     >
                                         <Upload className="w-5 h-5" />
                                         Import
@@ -808,7 +833,7 @@
                             </div>
                         </div>
 
-                        <div className="mb-4 flex gap-2 items-center">
+                        <div className="mb-4 flex flex-wrap gap-2 items-center">
                             <button
                                 onClick={alphabetizeCards}
                                 className="bg-white px-4 py-2 rounded-lg shadow hover:shadow-md transition flex items-center gap-2"
@@ -859,7 +884,11 @@
                             <>
                                 <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
                                     <div className="text-sm text-gray-500 mb-4">
-                                        Card {uniqueFilteredCards.findIndex(uc => uc.id === (filteredCards[currentIndex]?.id)) + 1} of {uniqueFilteredCards.length}
+                                        {displayMode === 'alphabetize' ? (
+                                            <span>Card {uniqueFilteredCards.findIndex(uc => uc.id === (filteredCards[currentIndex]?.id)) + 1} of {uniqueFilteredCards.length}</span>
+                                        ) : (
+                                            <span style={{ display: 'none' }} className="italic text-amber-700">Studying with spaced repetition for optimal learning</span>
+                                        )}
                                     </div>
 
                                     <div
@@ -906,8 +935,14 @@
                                         <button
                                             onClick={() => {
                                                 setIsFlipped(false);
-                                                const prevIdx = findPreviousUniqueIndex(currentIndex, filteredCards);
-                                                setCurrentIndex(prevIdx);
+                                                if (displayMode === 'alphabetize') {
+                                                    const prevIdx = findPreviousUniqueIndex(currentIndex, filteredCards);
+                                                    setCurrentIndex(prevIdx);
+                                                } else {
+                                                    // In randomize mode, simple decrement with wrap
+                                                    const prevIdx = currentIndex > 0 ? currentIndex - 1 : filteredCards.length - 1;
+                                                    setCurrentIndex(prevIdx);
+                                                }
                                             }}
                                             className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
                                         >
@@ -917,8 +952,22 @@
                                         <button
                                             onClick={() => {
                                                 setIsFlipped(false);
-                                                const nextIdx = findNextUniqueIndex(currentIndex, filteredCards);
-                                                setCurrentIndex(nextIdx);
+                                                if (displayMode === 'alphabetize') {
+                                                    const nextIdx = findNextUniqueIndex(currentIndex, filteredCards);
+                                                    setCurrentIndex(nextIdx);
+                                                } else {
+                                                    // In randomize mode, move forward and reshuffle if at end
+                                                    if (currentIndex >= filteredCards.length - 1) {
+                                                        // Reshuffle at end of deck
+                                                        const uniqueCards = deduplicateCards(cards);
+                                                        const reshuffled = shuffleCards(uniqueCards);
+                                                        setCards(reshuffled);
+                                                        saveProgress(reshuffled);
+                                                        setCurrentIndex(0);
+                                                    } else {
+                                                        setCurrentIndex(currentIndex + 1);
+                                                    }
+                                                }
                                             }}
                                             className="flex-1 bg-amber-800 text-white py-3 px-6 rounded-lg hover:bg-amber-900 transition flex items-center justify-center gap-2"
                                         >
