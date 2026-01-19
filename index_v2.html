@@ -330,7 +330,14 @@
                     
                     for (let j = 0; j < fullLine.length; j++) {
                         const char = fullLine[j];
-                        if (char === '"') {
+                        const nextChar = j + 1 < fullLine.length ? fullLine[j + 1] : null;
+                        
+                        if (char === '"' && nextChar === '"' && insideQuotes) {
+                            // Escaped quote within quoted field: "" -> "
+                            currentValue += '"';
+                            j++; // Skip the next quote
+                        } else if (char === '"') {
+                            // Toggle quote state (field delimiter)
                             insideQuotes = !insideQuotes;
                         } else if (char === ',' && !insideQuotes) {
                             values.push(currentValue.trim());
@@ -341,8 +348,11 @@
                     }
                     values.push(currentValue.trim());
                     
-                    const name = (values[nameIndex] || values[0] || '').replace(/^["']|["']$/g, '');
+                    let name = (values[nameIndex] || values[0] || '').replace(/^["']|["']$/g, '');
                     let description = (values[descIndex] || values[1] || '').replace(/^["']|["']$/g, '');
+                    
+                    // Note: Quotes are now properly preserved by the CSV parser above
+                    // No need to unescape them again here
                     
                     // Filter out WordPress shortcodes from uploaded CSV as well
                     description = cleanWordPressShortcodes(description);
@@ -849,7 +859,7 @@
                             <>
                                 <div className="bg-white rounded-xl shadow-lg p-8 mb-6 border-2 border-amber-200">
                                     <div className="text-sm text-gray-500 mb-4">
-                                        Card {currentIndex + 1} of {uniqueFilteredCards.length}
+                                        Card {uniqueFilteredCards.findIndex(uc => uc.id === (filteredCards[currentIndex]?.id)) + 1} of {uniqueFilteredCards.length}
                                     </div>
 
                                     <div
